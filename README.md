@@ -1,4 +1,3 @@
-```markdown
 # Project S.I.G.H.T. 👁️
 **System Inspection and Global Hardware Telemetry**
 
@@ -141,8 +140,4 @@ npm run tauri dev
 * Remote command execution strictly requires user consent via UI prompts.
 * API keys for third-party systems are held entirely server-side.
 
-```
 
-Would you like to generate the complete directory tree and the initial `main.go` and `database.go` files for Phase 1 to get the codebase started?
-
-```

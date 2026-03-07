@@ -1,0 +1,42 @@
+
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sight-postgres
+    environment:
+      POSTGRES_USER: sight_admin
+      POSTGRES_PASSWORD: sight_password
+      POSTGRES_DB: sight_db
+    ports:
+      - "5445:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: sight-redis
+    ports:
+      - "6385:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: sight-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  mosquitto_data:
+  mosquitto_log:

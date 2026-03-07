@@ -1,0 +1,11 @@
+﻿{
+    "platforms":  {
+                      "windows-x86_64":  {
+                                             "url":  "http://localhost:8080/downloads/agent-desktop_1.0.1_x64_en-US.msi.zip",
+                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTjIxSEhhSkcvWlV1dGlEVVp5bE9CdjhzMGpkUHhhcG1mcWpDUldsdGdtOXdrakl3aVBtL3NEMyt2QlNIK3Z3WGdZeXZnS1JvaVRyWS8vekd2RnhKNDdFdVBwYW9lYndzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcyODc2NDIzCWZpbGU6YWdlbnQtZGVza3RvcF8xLjAuMV94NjRfZW4tVVMubXNpLnppcApVKy81ZEJDeGZXNjN6Q3hFWGMvRFovR0xqNVp0NTZ4UUdBaUIxSWJLNWJyNmpUWnFSN0lWalAvbHB5RXhjOEEvVHFhTzZaZDZSUHQzbG1oekpkQklEdz09Cg=="
+                                         }
+                  },
+    "pub_date":  "2026-03-07T08:50:00Z",
+    "version":  "1.0.1",
+    "notes":  "Local audit logs, Activity History tab, and Push OTA Update remote action."
+}

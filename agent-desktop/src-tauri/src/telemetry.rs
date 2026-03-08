@@ -53,7 +53,16 @@ pub fn get_telemetry(sys: &mut System, dhcp_cache: &mut Option<bool>) -> Telemet
 
     // Evaluate DHCP once and cache it to save CPU ticks
     if dhcp_cache.is_none() && cfg!(target_os = "windows") {
-        if let Ok(output) = std::process::Command::new("ipconfig").arg("/all").output() {
+        #[cfg(target_os = "windows")]
+        use std::os::windows::process::CommandExt;
+
+        let mut cmd = std::process::Command::new("ipconfig");
+        cmd.arg("/all");
+        
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+        if let Ok(output) = cmd.output() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             if stdout.contains("DHCP Enabled. . . . . . . . . . . : Yes") {
                 *dhcp_cache = Some(true);

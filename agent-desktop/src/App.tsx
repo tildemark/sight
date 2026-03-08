@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard } from "lucide-react";
+import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon } from "lucide-react";
 import { AuditLogs } from "./AuditLogs";
+import { Settings } from "./Settings";
 
 interface Telemetry {
   hostname: string;
@@ -18,7 +19,8 @@ interface Telemetry {
 function App() {
   const [ticketDescription, setTicketDescription] = useState("");
   const [stats, setStats] = useState<Telemetry | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "logs">("dashboard");
+  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "logs" | "settings">("dashboard");
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -27,6 +29,12 @@ function App() {
         setStats(data);
       } catch (e) {
         console.error("Failed to fetch telemetry:", e);
+      }
+      try {
+        const connected = await invoke<boolean>("get_connection_status");
+        setIsConnected(connected);
+      } catch (e) {
+        console.error("Failed to fetch connection status:", e);
       }
     };
 
@@ -71,6 +79,12 @@ function App() {
         >
           <ScrollText className="h-4 w-4" /> Activity History
         </button>
+        <button
+          onClick={() => setActiveTab("settings")}
+          className={`flex-1 flex justify-center items-center gap-2 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === "settings" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+        >
+          <SettingsIcon className="h-4 w-4" /> Config
+        </button>
       </div>
 
       {activeTab === "dashboard" ? (
@@ -105,10 +119,14 @@ function App() {
           </div>
 
           {/* Connection Status */}
-          <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-full border border-border">
-            <div className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="text-sm font-medium text-secondary-foreground flex items-center gap-2">
-              Connected to Central <Activity className="h-4 w-4 text-green-500" />
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full border border-border ${isConnected ? 'bg-secondary/50' : 'bg-red-500/10'}`}>
+            <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className={`text-sm font-medium flex items-center gap-2 ${isConnected ? 'text-secondary-foreground' : 'text-red-500'}`}>
+              {isConnected ? (
+                <>Connected to Central <Activity className="h-4 w-4 text-green-500" /></>
+              ) : (
+                <>Server Disconnected / Offline <Activity className="h-4 w-4 text-red-500" /></>
+              )}
             </span>
           </div>
 
@@ -132,8 +150,10 @@ function App() {
             </button>
           </div>
         </>
-      ) : (
+      ) : activeTab === "logs" ? (
         <AuditLogs />
+      ) : (
+        <Settings />
       )}
     </div>
   );

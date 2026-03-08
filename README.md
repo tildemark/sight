@@ -63,6 +63,12 @@ Use this section to track the implementation of each architectural phase.
 - [x] Expand the Rust command engine to handle `shutdown /r /t 0` and network pings.
 - [x] Implement a command payload that securely self-restarts the Tauri agent process.
 
+### Phase 4.2: Logging & Audit Compliance
+- [ ] Establish local SQLite logging in the Tauri agent for offline audit trails.
+- [ ] Connect agent logs to the Go central server for centralized compliance tracking.
+- [ ] Build the "Activity History" UI tab in the agent desktop application.
+- [ ] Implement database synchronization for log ingestion when agents reconnect.
+
 ### Phase 5: Network Gear & NVR Integration
 - [ ] Add an SNMP polling engine to the Go Central API.
 - [ ] Configure SNMP queries for switches, firewalls, and Access Points (port status, bandwidth).

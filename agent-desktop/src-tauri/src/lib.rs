@@ -12,13 +12,20 @@ use tauri_plugin_autostart::ManagerExt;
 
 pub struct AppState {
     pub sys: Mutex<System>,
+    pub dhcp_enabled: Mutex<Option<bool>>,
+    pub is_server_connected: Mutex<bool>,
+}
+
+#[tauri::command]
+fn get_connection_status(state: tauri::State<AppState>) -> bool {
+    *state.is_server_connected.lock().unwrap()
 }
 
 #[tauri::command]
 fn get_local_telemetry(state: tauri::State<AppState>) -> telemetry::TelemetryData {
     let mut sys = state.sys.lock().unwrap();
-    let mut dummy_dhcp: Option<bool> = None;
-    telemetry::get_telemetry(&mut sys, &mut dummy_dhcp)
+    let mut dhcp_enabled = state.dhcp_enabled.lock().unwrap();
+    telemetry::get_telemetry(&mut sys, &mut dhcp_enabled)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -77,6 +84,8 @@ pub fn run() {
             sys.refresh_cpu_usage();
             app.manage(AppState {
                 sys: Mutex::new(sys),
+                dhcp_enabled: Mutex::new(None),
+                is_server_connected: Mutex::new(false),
             });
 
             // Spawn the background WebSocket loop
@@ -93,7 +102,13 @@ pub fn run() {
             }
             _ => {}
         })
-        .invoke_handler(tauri::generate_handler![get_local_telemetry, local_db::get_local_logs])
+        .invoke_handler(tauri::generate_handler![
+            get_local_telemetry, 
+            local_db::get_local_logs, 
+            get_connection_status,
+            local_db::get_config,
+            local_db::set_config
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

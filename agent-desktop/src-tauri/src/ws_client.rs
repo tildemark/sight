@@ -22,17 +22,24 @@ pub struct CommandResultPayload {
     pub output: String,
 }
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
 pub async fn start_background_loop(app_handle: AppHandle) {
-    let url = "ws://localhost:8080/ws";
+    let mut fail_count = 0;
 
     loop {
-        match connect_async(url).await {
+        let config = crate::local_db::get_config(app_handle.clone()).unwrap_or_default();
+        let url = config.get("server_url").cloned().unwrap_or_else(|| "ws://localhost:8080/ws".to_string());
+        let fallback_url = config.get("fallback_config_url").cloned().unwrap_or_else(|| "https://raw.githubusercontent.com/company/sight-config/main/config.json".to_string());
+
+        match connect_async(&url).await {
             Ok((mut ws_stream, _)) => {
                 println!("Connected to {}", url);
+                *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = true;
+                fail_count = 0;
+
                 let mut sys = System::new_all();
 
                 // Refresh once initially to baseline CPU usage.
@@ -151,7 +158,11 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                 );
                                                                 
                                                                 let mut cmd = if cfg!(target_os = "windows") {
+                                                                    #[cfg(target_os = "windows")]
+                                                                    use std::os::windows::process::CommandExt;
                                                                     let mut c = std::process::Command::new("powershell");
+                                                                    #[cfg(target_os = "windows")]
+                                                                    c.creation_flags(0x08000000);
                                                                     c.arg("-WindowStyle").arg("Hidden").arg("-Command").arg(ps_script);
                                                                     c
                                                                 } else {
@@ -164,7 +175,12 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             }
                                                         } else {
                                                             let mut cmd = if cfg!(target_os = "windows") {
-                                                                std::process::Command::new("cmd")
+                                                                #[cfg(target_os = "windows")]
+                                                                use std::os::windows::process::CommandExt;
+                                                                let mut c = std::process::Command::new("cmd");
+                                                                #[cfg(target_os = "windows")]
+                                                                c.creation_flags(0x08000000);
+                                                                c
                                                             } else {
                                                                 std::process::Command::new("sh")
                                                             };
@@ -224,8 +240,6 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                     }
                 });
 
-                let mut dhcp_cache: Option<bool> = None;
-
                 // Main writer loop for Telemetry and Queued Messages
                 loop {
                     tokio::select! {
@@ -236,8 +250,19 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                             }
                         }
                         _ = sleep(Duration::from_secs(5)) => {
-                            let telemetry = get_telemetry(&mut sys, &mut dhcp_cache);
+                            let mut dhcp_val = {
+                                let state = app_handle.state::<crate::AppState>();
+                                let val = state.dhcp_enabled.lock().unwrap().clone();
+                                val
+                            };
+                            let telemetry = get_telemetry(&mut sys, &mut dhcp_val);
                             
+                            // Save it back to the state if it was updated
+                            if let Some(new_val) = dhcp_val {
+                                let state = app_handle.state::<crate::AppState>();
+                                *state.dhcp_enabled.lock().unwrap() = Some(new_val);
+                            }
+
                             let wrapper = WebSocketMessage {
                                 msg_type: "TELEMETRY".to_string(),
                                 target_hostname: None,
@@ -256,9 +281,28 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                 }
                 
                 read_task.abort(); // cleanup listener on disconnect
+                *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = false;
             }
             Err(e) => {
                 println!("Failed to connect: {}. Retrying in 5 seconds...", e);
+                *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = false;
+                
+                fail_count += 1;
+                if fail_count >= 5 {
+                    println!("Connection failed 5 times. Attempting to fetch fallback config from {}", fallback_url);
+                    if let Ok(resp) = reqwest::get(&fallback_url).await {
+                        if let Ok(json) = resp.json::<serde_json::Value>().await {
+                            if let Some(new_url) = json.get("server_url").and_then(|v| v.as_str()) {
+                                if new_url != url {
+                                    println!("Discovered new server URL from fallback config: {}", new_url);
+                                    let _ = crate::local_db::set_config(app_handle.clone(), "server_url".to_string(), new_url.to_string());
+                                }
+                            }
+                        }
+                    }
+                    fail_count = 0; // Reset to try old/new URL 5 more times before checking config again
+                }
+
                 sleep(Duration::from_secs(5)).await;
             }
         }

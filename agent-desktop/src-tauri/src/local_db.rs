@@ -3,6 +3,7 @@ use chrono::Utc;
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LocalLog {
@@ -33,6 +34,24 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
             output TEXT NOT NULL
         )",
         (), // empty list of parameters
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+        (),
+    )?;
+
+    // Insert Default Configurations if they don't exist
+    conn.execute(
+        "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
+        ("server_url", "wss://api.sight.local/ws"),
+    )?;
+    conn.execute(
+        "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
+        ("fallback_config_url", "https://raw.githubusercontent.com/company/sight-config/main/config.json"),
     )?;
 
     Ok(())
@@ -76,4 +95,36 @@ pub fn get_local_logs(app_handle: tauri::AppHandle) -> std::result::Result<Vec<L
     }
 
     Ok(logs)
+}
+
+#[tauri::command]
+pub fn get_config(app_handle: tauri::AppHandle) -> std::result::Result<HashMap<String, String>, String> {
+    let db_path = get_db_path(&app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare("SELECT key, value FROM config").map_err(|e| e.to_string())?;
+    let config_iter = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?;
+
+    let mut map = HashMap::new();
+    for item in config_iter {
+        let (k, v) = item.map_err(|e| e.to_string())?;
+        map.insert(k, v);
+    }
+
+    Ok(map)
+}
+
+#[tauri::command]
+pub fn set_config(app_handle: tauri::AppHandle, key: String, value: String) -> std::result::Result<(), String> {
+    let db_path = get_db_path(&app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO config (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (&key, &value),
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
 }

@@ -20,9 +20,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install production dependencies
+# Production runtime
 ENV NODE_ENV=production
-RUN npm ci
 
 # Copy built application
 COPY --from=builder /app/public ./public

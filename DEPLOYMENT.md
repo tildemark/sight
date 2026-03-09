@@ -16,21 +16,21 @@ This document covers the deployment of the Sight remote agent management system 
 │  ┌─────────────┐    ┌─────────────┐    ┌──────────────────┐   │
 │  │   Landing   │───▶│  Dashboard  │───▶│  Go Server       │   │
 │  │   (Nginx)   │    │  (Next.js)  │    │  (WebSocket)     │   │
-│  │   :3001     │    │   :3000     │    │    :8080         │   │
+│  │   :3101     │    │   :3100     │    │    :8180         │   │
 │  └─────────────┘    └─────────────┘    └──────────────────┘   │
 │         │                                      │               │
 │  ┌──────┴──────┐                        ┌─────┴─────┐         │
 │  │ config.json │                        │ PostgreSQL │         │
-│  │ (server_url)│                        │   :5445    │         │
+│  │ (server_url)│                        │   :5545    │         │
 │  └─────────────┘                        └────────────┘         │
 │                                                  │               │
 │                                           ┌──────┴──────┐        │
 │                                           │   Redis    │        │
-│                                           │   :6385    │        │
+│                                           │   :6485    │        │
 │                                           └────────────┘        │
 │                                           ┌────────────┐         │
 │                                           │ Mosquitto │         │
-│                                           │  :1883    │         │
+│                                           │  :2883    │         │
 │                                           └───────────┘         │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -45,11 +45,13 @@ Pre-configured to connect to: wss://sight.sanchez.ph/ws
 ### Demo Server (OCI Ampere)
 - **Public IP**: Assigned by OCI
 - **Required Ports**:
-  - 80/443 (Nginx - Landing & Dashboard)
-  - 8080 (Go Server - WebSocket)
-  - 5445 (PostgreSQL)
-  - 6385 (Redis)
-  - 1883/9001 (Mosquitto MQTT)
+   - 80/443 (existing reverse proxy)
+   - 3101 (Landing)
+   - 3100 (Dashboard)
+   - 8180 (Go Server - WebSocket)
+   - 5545 (PostgreSQL)
+   - 6485 (Redis)
+   - 2883/9901 (Mosquitto MQTT)
 
 ### Production Server (Company Intranet)
 - **Public IP**: Via Sophos Firewall
@@ -175,12 +177,12 @@ scripts\build-prod-agent.bat
 ### Demo Stack Services
 | Service | Container | Port | Description |
 |---------|-----------|------|-------------|
-| Landing | sight-landing | 3001 | Nginx serving landing page |
-| Dashboard | sight-dashboard | 3000 | Next.js web UI |
-| Server | sight-server | 8080 | Go WebSocket server |
-| PostgreSQL | sight-postgres | 5445 | Database |
-| Redis | sight-redis | 6385 | Cache/Sessions |
-| Mosquitto | sight-mosquitto | 1883 | MQTT broker |
+| Landing | sight-landing | 3101 | Nginx serving landing page |
+| Dashboard | sight-dashboard | 3100 | Next.js web UI |
+| Server | sight-server | 8180 | Go WebSocket server |
+| PostgreSQL | sight-postgres | 5545 | Database |
+| Redis | sight-redis | 6485 | Cache/Sessions |
+| Mosquitto | sight-mosquitto | 2883/9901 | MQTT broker |
 
 ### Production Stack Services
 Same as demo, minus the landing page container.

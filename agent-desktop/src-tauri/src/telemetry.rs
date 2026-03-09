@@ -15,9 +15,18 @@ pub struct TelemetryData {
     pub ip_address: Option<String>,
     pub mac_address: Option<String>,
     pub dhcp_enabled: Option<bool>,
+    /// The RustDesk peer ID for this machine, sourced from `rustdesk --get-id`.
+    /// `None` if RustDesk is not installed or the ID has not yet been resolved.
+    pub rustdesk_id: Option<String>,
 }
 
-pub fn get_telemetry(sys: &mut System, dhcp_cache: &mut Option<bool>) -> TelemetryData {
+/// Collects a snapshot of system telemetry.
+///
+/// # Parameters
+/// - `sys`: mutable reference to the sysinfo `System` handle (reused across calls for efficiency)
+/// - `dhcp_cache`: cached DHCP status; evaluated once and stored to avoid repeated `ipconfig` calls
+/// - `rustdesk_id`: cached RustDesk peer ID from `AppState`; passed in to avoid re-fetching every tick
+pub fn get_telemetry(sys: &mut System, dhcp_cache: &mut Option<bool>, rustdesk_id: Option<String>) -> TelemetryData {
     sys.refresh_cpu_usage();
     sys.refresh_memory();
 
@@ -91,5 +100,6 @@ pub fn get_telemetry(sys: &mut System, dhcp_cache: &mut Option<bool>) -> Telemet
         ip_address,
         mac_address,
         dhcp_enabled: *dhcp_cache,
+        rustdesk_id,
     }
 }

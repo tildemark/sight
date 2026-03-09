@@ -1,6 +1,8 @@
 pub mod telemetry;
 pub mod ws_client;
 pub mod local_db;
+pub mod rustdesk;
+
 use std::sync::Mutex;
 use sysinfo::System;
 use tauri::{
@@ -14,6 +16,10 @@ pub struct AppState {
     pub sys: Mutex<System>,
     pub dhcp_enabled: Mutex<Option<bool>>,
     pub is_server_connected: Mutex<bool>,
+    /// Cached RustDesk peer ID. Populated at startup and refreshed hourly
+    /// so that agents that install RustDesk after the agent starts will
+    /// eventually report their ID without requiring a restart.
+    pub rustdesk_id: Mutex<Option<String>>,
 }
 
 #[tauri::command]
@@ -25,7 +31,15 @@ fn get_connection_status(state: tauri::State<AppState>) -> bool {
 fn get_local_telemetry(state: tauri::State<AppState>) -> telemetry::TelemetryData {
     let mut sys = state.sys.lock().unwrap();
     let mut dhcp_enabled = state.dhcp_enabled.lock().unwrap();
-    telemetry::get_telemetry(&mut sys, &mut dhcp_enabled)
+    let rustdesk_id = state.rustdesk_id.lock().unwrap().clone();
+    telemetry::get_telemetry(&mut sys, &mut dhcp_enabled, rustdesk_id)
+}
+
+/// Returns the cached RustDesk peer ID for this machine.
+/// Returns `None` if RustDesk is not installed or the ID has not yet been resolved.
+#[tauri::command]
+fn get_rustdesk_id(state: tauri::State<AppState>) -> Option<String> {
+    state.rustdesk_id.lock().unwrap().clone()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -82,10 +96,21 @@ pub fn run() {
 
             let mut sys = System::new_all();
             sys.refresh_cpu_usage();
+
+            // Perform the initial RustDesk ID lookup synchronously at startup.
+            // This is a fast CLI call and acceptable on the setup thread.
+            let initial_rustdesk_id = rustdesk::get_rustdesk_id();
+            if let Some(ref id) = initial_rustdesk_id {
+                println!("[RustDesk] Initial peer ID: {}", id);
+            } else {
+                println!("[RustDesk] Not detected at startup. Will retry hourly.");
+            }
+
             app.manage(AppState {
                 sys: Mutex::new(sys),
                 dhcp_enabled: Mutex::new(None),
                 is_server_connected: Mutex::new(false),
+                rustdesk_id: Mutex::new(initial_rustdesk_id),
             });
 
             // Spawn the background WebSocket loop
@@ -93,6 +118,36 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 ws_client::start_background_loop(app_handle).await;
             });
+
+            // Spawn the hourly RustDesk ID refresh task.
+            // This ensures that if RustDesk is installed after the agent starts,
+            // the ID will be picked up within the next hour without a restart.
+            let app_handle_rd = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    // Wait one hour before the first refresh (initial fetch already done above)
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+
+                    let new_id = rustdesk::get_rustdesk_id();
+                    let state = app_handle_rd.state::<AppState>();
+                    let mut cached = state.rustdesk_id.lock().unwrap();
+
+                    match (&*cached, &new_id) {
+                        (None, Some(id)) => {
+                            println!("[RustDesk] Hourly refresh: discovered new peer ID: {}", id);
+                            *cached = new_id;
+                        }
+                        (Some(old), Some(new)) if old != new => {
+                            println!("[RustDesk] Hourly refresh: peer ID changed from {} to {}", old, new);
+                            *cached = new_id;
+                        }
+                        _ => {
+                            // No change — nothing to do
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -103,9 +158,10 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
-            get_local_telemetry, 
-            local_db::get_local_logs, 
+            get_local_telemetry,
+            local_db::get_local_logs,
             get_connection_status,
+            get_rustdesk_id,
             local_db::get_config,
             local_db::set_config
         ])

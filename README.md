@@ -14,6 +14,7 @@ An enterprise-grade, multi-protocol IT monitoring and remote troubleshooting hub
 * **Privacy-First Remediation:** Push commands directly from the dashboard to client PCs, guarded by an interactive user-consent handshake.
 * **Live Support Chat:** Real-time, bi-directional WebSocket chat connecting employees directly to IT support.
 * **Immutable Audit Trails:** Every command, chat message, and consent request is permanently logged in PostgreSQL for strict compliance.
+* **RustDesk Remote Desktop Integration:** The agent automatically discovers the locally-installed RustDesk peer ID and reports it to the server. Admins can launch a one-click remote desktop session directly from the dashboard via the `rustdesk://` deep-link protocol — no bundling, no API keys, no extra infrastructure.
 
 ## 🛠️ Technology Stack
 
@@ -24,6 +25,7 @@ An enterprise-grade, multi-protocol IT monitoring and remote troubleshooting hub
 | **Central Server** | Go (Golang), WebSockets, SNMP |
 | **Databases** | PostgreSQL (Relational), Redis (In-Memory State) |
 | **IoT & Mobile Messaging** | Mosquitto (MQTT), Firebase Cloud Messaging (FCM) |
+| **Remote Desktop** | RustDesk (external install, `rustdesk://` deep-link protocol) |
 
 ## 🗺️ Development Roadmap & Progress Tracker
 
@@ -68,6 +70,16 @@ Use this section to track the implementation of each architectural phase.
 - [ ] Connect agent logs to the Go central server for centralized compliance tracking.
 - [ ] Build the "Activity History" UI tab in the agent desktop application.
 - [ ] Implement database synchronization for log ingestion when agents reconnect.
+
+### Phase 4.3: RustDesk Remote Desktop Integration
+- [x] Add `rustdesk.rs` module to the Tauri agent to discover the local RustDesk peer ID via `rustdesk --get-id` CLI.
+- [x] Implement PATH + common install path fallback resolution for the RustDesk executable.
+- [x] Cache the RustDesk ID in `AppState` with an hourly background refresh task.
+- [x] Extend `TelemetryData` struct with `rustdesk_id: Option<String>` and propagate it through the WebSocket telemetry payload.
+- [x] Display the RustDesk peer ID in the agent desktop UI (System Agent tab).
+- [x] Display the RustDesk peer ID in the dashboard Network Config panel per agent.
+- [x] Add a "Connect via RustDesk" deep-link button (`rustdesk://connect/{id}`) to the dashboard Remote Actions panel.
+- [ ] Add RustDesk session initiation audit logging to the Go server and PostgreSQL.
 
 ### Phase 5: Network Gear & NVR Integration
 - [ ] Add an SNMP polling engine to the Go Central API.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSightWebsocket, TelemetryData } from "@/hooks/useSightWebsocket";
-import { HardDrive, Cpu, ShieldCheck, Activity, Settings2, ChevronDown, ChevronRight, Power, RefreshCw, Network, Zap, DownloadCloud } from "lucide-react";
+import { HardDrive, Cpu, ShieldCheck, Activity, Settings2, ChevronDown, ChevronRight, Power, RefreshCw, Network, Zap, DownloadCloud, Monitor } from "lucide-react";
 import { useState } from "react";
 
 function AgentRow({ agent, sendCommand }: { agent: TelemetryData; sendCommand: (hostname: string, action: string) => boolean }) {
@@ -93,6 +93,16 @@ function AgentRow({ agent, sendCommand }: { agent: TelemetryData; sendCommand: (
                                             <span className="text-muted-foreground italic">Fetching...</span>
                                         )}
                                     </div>
+                                    <div className="text-muted-foreground font-medium">RustDesk ID</div>
+                                    <div className="flex items-center gap-2 font-mono text-xs">
+                                        {agent.rustdesk_id ? (
+                                            <span className="text-sky-400 font-bold tracking-widest select-all">
+                                                {agent.rustdesk_id}
+                                            </span>
+                                        ) : (
+                                            <span className="text-muted-foreground italic">Not installed</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -152,6 +162,19 @@ function AgentRow({ agent, sendCommand }: { agent: TelemetryData; sendCommand: (
                                         className="col-span-2 px-3 py-2 bg-red-900/50 text-red-100 text-xs rounded-md hover:bg-red-800 flex items-center justify-center gap-2 border border-red-500/50 mt-1">
                                         <Power className="h-4 w-4" /> Force Restart PC
                                     </button>
+
+                                    {/* RustDesk Remote Desktop — only shown when the agent has reported a peer ID */}
+                                    {agent.rustdesk_id && (
+                                        <a
+                                            href={`rustdesk://connect/${agent.rustdesk_id}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            title={`Open RustDesk and connect to ${agent.hostname} (ID: ${agent.rustdesk_id})`}
+                                            className="col-span-2 px-3 py-2 bg-sky-900/40 text-sky-300 text-xs rounded-md hover:bg-sky-800/60 flex items-center justify-center gap-2 border border-sky-500/50 mt-1 no-underline">
+                                            <Monitor className="h-4 w-4" />
+                                            Connect via RustDesk
+                                            <span className="font-mono text-sky-400/70 ml-1">({agent.rustdesk_id})</span>
+                                        </a>
+                                    )}
                                 </div>
                             </div>
                         </div>

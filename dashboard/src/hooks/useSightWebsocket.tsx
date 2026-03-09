@@ -16,6 +16,8 @@ export interface TelemetryData {
     ip_address?: string;
     mac_address?: string;
     dhcp_enabled?: boolean;
+    /** RustDesk peer ID reported by the agent. Null if RustDesk is not installed on the target. */
+    rustdesk_id?: string | null;
     last_seen: Date;
 }
 

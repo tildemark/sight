@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon } from "lucide-react";
+import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor } from "lucide-react";
 import { AuditLogs } from "./AuditLogs";
 import { Settings } from "./Settings";
 
@@ -14,6 +14,8 @@ interface Telemetry {
   memory_total: number;
   disk_used: number;
   disk_total: number;
+  /** RustDesk peer ID for this machine. Null if RustDesk is not installed. */
+  rustdesk_id?: string | null;
 }
 
 function App() {
@@ -128,6 +130,26 @@ function App() {
                 <>Server Disconnected / Offline <Activity className="h-4 w-4 text-red-500" /></>
               )}
             </span>
+          </div>
+
+          {/* RustDesk Remote Access ID */}
+          <div className="w-full max-w-sm bg-card p-4 rounded-xl border shadow-sm space-y-2">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-sky-500" />
+              RustDesk Remote Access
+            </h3>
+            {stats?.rustdesk_id ? (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Peer ID</span>
+                <span className="font-mono text-sm font-bold tracking-widest text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1 rounded-md select-all">
+                  {stats.rustdesk_id}
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">
+                RustDesk not detected. Install RustDesk on this machine to enable remote access via the admin dashboard.
+              </p>
+            )}
           </div>
 
           {/* Simple Ticketing Form */}

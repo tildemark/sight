@@ -255,7 +255,12 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                 let val = state.dhcp_enabled.lock().unwrap().clone();
                                 val
                             };
-                            let telemetry = get_telemetry(&mut sys, &mut dhcp_val);
+                            // Read the cached RustDesk ID from AppState (refreshed hourly by lib.rs)
+                            let rustdesk_id = {
+                                let state = app_handle.state::<crate::AppState>();
+                                state.rustdesk_id.lock().unwrap().clone()
+                            };
+                            let telemetry = get_telemetry(&mut sys, &mut dhcp_val, rustdesk_id);
                             
                             // Save it back to the state if it was updated
                             if let Some(new_val) = dhcp_val {

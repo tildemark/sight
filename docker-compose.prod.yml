@@ -30,16 +30,16 @@ services:
       - net
 
   mosquitto:
-    image: eclipse-mosquitto:2
+    build:
+      context: ./mosquitto
+      dockerfile: Dockerfile
     container_name: sight-mosquitto
-    command: mosquitto -c /mosquitto/config/mosquitto.conf
     ports:
       - "1883:1883"
       - "9001:9001"
     volumes:
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
-      - ./mosquitto:/mosquitto/config
     restart: unless-stopped
     networks:
       - net

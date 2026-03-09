@@ -102,4 +102,3 @@ volumes:
   redisdata:
   mosquitto_data:
   mosquitto_log:
-  mosquitto_config:

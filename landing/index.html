@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sight - Remote Agent Management System</title>
+    <meta name="description" content="Sight is a powerful remote agent and desktop management system with real-time monitoring, telemetry, and secure communication.">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Custom Font Styles -->
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #22d3ee;
+            --accent: #f472b6;
+            --dark-bg: #0a0a0f;
+            --dark-card: #12121a;
+            --dark-border: #1e1e2e;
+        }
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        
+        /* Gradient Text */
+        .text-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #22d3ee 50%, #f472b6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Animated Gradient Background */
+        .animated-gradient {
+            background: linear-gradient(-45deg, #0a0a0f, #12121a, #1a1a2e, #0a0a0f);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Floating Animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .float-animation {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        /* Glow Effect */
+        .glow {
+            box-shadow: 0 0 40px rgba(99, 102, 241, 0.3);
+        }
+        
+        .glow-text {
+            text-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+        }
+        
+        /* Parallax Container */
+        .parallax-section {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Card Styles */
+        .feature-card {
+            background: linear-gradient(145deg, rgba(18, 18, 26, 0.8), rgba(30, 30, 46, 0.4));
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.15);
+        }
+        
+        /* Button Styles */
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+        }
+        
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        
+        .btn-primary:hover::after {
+            left: 100%;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid rgba(99, 102, 241, 0.5);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #6366f1;
+        }
+        
+        /* Grid Pattern Background */
+        .grid-pattern {
+            background-image: 
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+        
+        /* Hero Section */
+        .hero-bg {
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 40%),
+                radial-gradient(ellipse at 60% 80%, rgba(244, 114, 182, 0.08) 0%, transparent 40%),
+                linear-gradient(180deg, #0a0a0f 0%, #12121a 100%);
+        }
+        
+        /* Section Divider */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+        }
+        
+        /* Pulse Animation for CTA */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); }
+        }
+        
+        .pulse-glow {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        /* Scroll Indicator */
+        .scroll-indicator {
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        /* Stagger Animation */
+        .stagger-fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: staggerFadeIn 0.8s ease forwards;
+        }
+        
+        @keyframes staggerFadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-400 { animation-delay: 0.4s; }
+        .delay-500 { animation-delay: 0.5s; }
+        
+        /* Link Hover Effects */
+        .link-hover {
+            position: relative;
+        }
+        
+        .link-hover::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -2px;
+            left: 0;
+            background: linear-gradient(90deg, #6366f1, #22d3ee);
+            transition: width 0.3s ease;
+        }
+        
+        .link-hover:hover::after {
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="animated-gradient">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-lg border-b border-[#1e1e2e]">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="#" class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#22d3ee] flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </div>
+                <span class="text-xl font-bold text-gradient">Sight</span>
+            </a>
+            
+            <div class="hidden md:flex items-center gap-8">
+                <a href="#features" class="text-gray-400 hover:text-white link-hover transition-colors">Features</a>
+                <a href="#download" class="text-gray-400 hover:text-white link-hover transition-colors">Download</a>
+                <a href="#source" class="text-gray-400 hover:text-white link-hover transition-colors">Source</a>
+                <a href="#demo" class="text-gray-400 hover:text-white link-hover transition-colors">Demo</a>
+                <a href="#download" class="btn-primary px-5 py-2 rounded-lg text-white font-medium">
+                    Get Started
+                </a>
+            </div>
+            
+            <!-- Mobile Menu Button -->
+            <button class="md:hidden text-gray-400 hover:text-white" onclick="document.getElementById('mobile-menu').classList.toggle('hidden')">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-[#12121a]/95 backdrop-blur-lg border-t border-[#1e1e2e]">
+            <div class="px-6 py-4 flex flex-col gap-4">
+                <a href="#features" class="text-gray-400 hover:text-white transition-colors">Features</a>
+                <a href="#download" class="text-gray-400 hover:text-white transition-colors">Download</a>
+                <a href="#source" class="text-gray-400 hover:text-white transition-colors">Source</a>
+                <a href="#demo" class="text-gray-400 hover:text-white transition-colors">Demo</a>
+                <a href="#download" class="btn-primary px-5 py-2 rounded-lg text-white font-medium text-center">
+                    Get Started
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-bg min-h-screen flex items-center justify-center relative grid-pattern">
+        <div class="absolute inset-0 overflow-hidden">
+            <!-- Decorative Elements -->
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-[#6366f1]/10 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#22d3ee]/10 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div class="max-w-5xl mx-auto px-6 text-center relative z-10 pt-20">
+            <!-- Badge -->
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#6366f1]/10 border border-[#6366f1]/20 mb-8 stagger-fade-in">
+                <span class="w-2 h-2 rounded-full bg-[#22d3ee] animate-pulse"></span>
+                <span class="text-sm text-[#22d3ee] font-medium">Remote Agent Management System</span>
+            </div>
+            
+            <!-- Main Heading -->
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 stagger-fade-in delay-100">
+                <span class="text-white">Monitor. Control.</span>
+                <br>
+                <span class="text-gradient">Secure.</span>
+            </h1>
+            
+            <!-- Subtitle -->
+            <p class="text-xl md:text-2xl text-gray-400 mb-10 max-w-3xl mx-auto stagger-fade-in delay-200">
+                Sight is a powerful remote agent and desktop management system with real-time monitoring, 
+                telemetry, audit logs, and secure WebSocket communication.
+            </p>
+            
+            <!-- CTA Buttons -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 stagger-fade-in delay-300">
+                <a href="#download" class="btn-primary px-8 py-4 rounded-xl text-lg font-semibold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                    Download Agent
+                </a>
+                <a href="#demo" class="btn-secondary px-8 py-4 rounded-xl text-lg font-semibold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    View Demo
+                </a>
+            </div>
+            
+            <!-- Code Snippet Preview -->
+            <div class="mt-16 max-w-2xl mx-auto stagger-fade-in delay-400">
+                <div class="bg-[#12121a]/80 backdrop-blur border border-[#1e1e2e] rounded-xl overflow-hidden">
+                    <div class="flex items-center gap-2 px-4 py-3 bg-[#1e1e2e]/50 border-b border-[#1e1e2e]">
+                        <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        <span class="ml-2 text-sm text-gray-500 font-mono">agent.go</span>
+                    </div>
+                    <div class="p-4 text-left">
+                        <pre class="text-sm font-mono text-gray-300 overflow-x-auto"><code><span class="text-[#f472b6]">package</span> main
+
+<span class="text-[#f472b6]">import</span> (
+    <span class="text-[#22d3ee]">"sight/agent"</span>
+)
+
+<span class="text-[#6366f1]">func</span> <span class="text-[#facc15]">main</span>() {
+    agent.<span class="text-[#facc15]">Connect</span>(
+        <span class="text-[#22d3ee]">"wss://server.sight.io/agent"</span>,
+        agent.<span class="text-[#facc15]">WithTelemetry</span>(),
+    )
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scroll Indicator -->
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 scroll-indicator">
+            <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 relative">
+        <div class="absolute inset-0 grid-pattern"></div>
+        
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            <!-- Section Header -->
+            <div class="text-center mb-16">
+                <span class="text-[#22d3ee] font-medium">Features</span>
+                <h2 class="text-4xl md:text-5xl font-bold text-white mt-2">
+                    Everything you need to manage <span class="text-gradient">remote agents</span>
+                </h2>
+                <p class="text-gray-400 mt-4 max-w-2xl mx-auto">
+                    Powerful tools for monitoring, controlling, and securing your distributed infrastructure.
+                </p>
+            </div>
+            
+            <!-- Features Grid -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Feature 1: Agent Management -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#4f46e5] flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 2v10 00-2a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Agent Management</h3>
+                    <p class="text-gray-400">
+                        Deploy, configure, and manage desktop agents across your entire infrastructure from a centralized dashboard.
+                    </p>
+                </div>
+                
+                <!-- Feature 2: Remote Desktop -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#22d3ee] to-[#06b6d4] flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Remote Desktop</h3>
+                    <p class="text-gray-400">
+                        Access and control remote desktops in real-time with low latency, powered by RustDesk integration.
+                    </p>
+                </div>
+                
+                <!-- Feature 3: Audit Logs -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#f472b6] to-[#ec4899] flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Audit Logs</h3>
+                    <p class="text-gray-400">
+                        Comprehensive logging of all agent activities, commands, and events for compliance and security.
+                    </p>
+                </div>
+                
+                <!-- Feature 4: Telemetry -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#facc15] to-[#eab308] flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Telemetry</h3>
+                    <p class="text-gray-400">
+                        Real-time system metrics, performance data, and health status from all connected agents.
+                    </p>
+                </div>
+                
+                <!-- Feature 5: WebSocket Communication -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#a855f7] to-[#9333ea] flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Real-time WebSocket</h3>
+                    <p class="text-gray-400">
+                        Bidirectional, encrypted communication between agents and server with instant command delivery.
+                    </p>
+                </div>
+                
+                <!-- Feature 6: Secure & Scalable -->
+                <div class="feature-card p-8 rounded-2xl">
+                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center mb-6">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-white mb-3">Secure & Scalable</h3>
+                    <p class="text-gray-400">
+                        Built with Go for high performance and reliability. Secure MQTT/WebSocket protocols for communication.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="py-24 relative overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#6366f1]/10 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-[#22d3ee]/10 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div class="max-w-4xl mx-auto px-6 relative z-10">
+            <div class="bg-[#12121a]/60 backdrop-blur-xl border border-[#1e1e2e] rounded-3xl p-12 text-center glow">
+                <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-[#6366f1] to-[#22d3ee] flex items-center justify-center mb-8 float-animation">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                </div>
+                
+                <h2 class="text-4xl font-bold text-white mb-4">
+                    Download <span class="text-gradient">Sight Agent</span>
+                </h2>
+                <p class="text-gray-400 mb-8 max-w-xl mx-auto">
+                    Get the latest version of the Sight desktop agent. Install on Windows machines to start managing them remotely.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+                    <a href="server/releases/agent-desktop_1.0.1_x64_en-US.msi.zip" 
+                       class="btn-primary px-8 py-4 rounded-xl text-lg font-semibold text-white flex items-center gap-3 pulse-glow">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download MSI Installer
+                    </a>
+                </div>
+                
+                <div class="flex items-center justify-center gap-6 text-sm text-gray-500">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        Secure & Verified
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        v1.0.1
+                    </span>
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                        </svg>
+                        Windows x64
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Source Code Section -->
+    <section id="source" class="py-24 relative">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Section Header -->
+            <div class="text-center mb-16">
+                <span class="text-[#22d3ee] font-medium">Open Source</span>
+                <h2 class="text-4xl md:text-5xl font-bold text-white mt-2">
+                    Built with <span class="text-gradient">modern technologies</span>
+                </h2>
+                <p class="text-gray-400 mt-4 max-w-2xl mx-auto">
+                    Sight is open source. Explore the codebase and contribute to the project.
+                </p>
+            </div>
+            
+            <!-- Source Cards -->
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Agent Desktop -->
+                <a href="agent-desktop" class="group feature-card p-8 rounded-2xl block">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#6366f1]/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[#6366f1]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-white group-hover:text-[#6366f1] transition-colors">Agent Desktop</h3>
+                            <p class="text-sm text-gray-500">Tauri + React</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-400 text-sm">
+                        Cross-platform desktop application for end users to connect and receive remote commands.
+                    </p>
+                    <div class="mt-4 flex items-center gap-2 text-[#6366f1] text-sm font-medium">
+                        <span>View Source</span>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </a>
+                
+                <!-- Dashboard -->
+                <a href="dashboard" class="group feature-card p-8 rounded-2xl block">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#22d3ee]/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[#22d3ee]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 2h2a2 2 0 012 0 012-2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-white group-hover:text-[#22d3ee] transition-colors">Dashboard</h3>
+                            <p class="text-sm text-gray-500">Next.js</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-400 text-sm">
+                        Web-based admin dashboard for managing agents, viewing logs, and monitoring telemetry.
+                    </p>
+                    <div class="mt-4 flex items-center gap-2 text-[#22d3ee] text-sm font-medium">
+                        <span>View Source</span>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </a>
+                
+                <!-- Server -->
+                <a href="server" class="group feature-card p-8 rounded-2xl block">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-[#f472b6]/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-[#f472b6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-white group-hover:text-[#f472b6] transition-colors">Server</h3>
+                            <p class="text-sm text-gray-500">Go</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-400 text-sm">
+                        Backend server handling agent connections, WebSocket communication, and data storage.
+                    </p>
+                    <div class="mt-4 flex items-center gap-2 text-[#f472b6] text-sm font-medium">
+                        <span>View Source</span>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="py-24 relative overflow-hidden">
+        <div class="absolute inset-0 grid-pattern"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#6366f1]/5 rounded-full blur-3xl"></div>
+        
+        <div class="max-w-4xl mx-auto px-6 relative z-10 text-center">
+            <span class="text-[#22d3ee] font-medium">Live Demo</span>
+            <h2 class="text-4xl md:text-5xl font-bold text-white mt-2 mb-6">
+                Try <span class="text-gradient">Sight</span> in Action
+            </h2>
+            <p class="text-gray-400 mb-10 max-w-2xl mx-auto">
+                Experience the power of Sight firsthand. Explore the dashboard, manage agents, and see the real-time features in action.
+            </p>
+            
+            <a href="/dashboard" target="_blank" rel="noopener noreferrer" 
+               class="inline-flex items-center gap-3 btn-primary px-10 py-5 rounded-xl text-xl font-semibold text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Launch Demo
+            </a>
+            
+            <p class="mt-6 text-gray-500 text-sm">
+                Demo credentials will be provided upon launch
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 border-t border-[#1e1e2e]">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <!-- Logo & Copyright -->
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#22d3ee] flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="text-lg font-bold text-gradient">Sight</span>
+                        <p class="text-sm text-gray-500">© 2024 Sight. All rights reserved.</p>
+                    </div>
+                </div>
+                
+                <!-- Links -->
+                <div class="flex items-center gap-8">
+                    <a href="#features" class="text-gray-400 hover:text-white link-hover transition-colors">Features</a>
+                    <a href="#download" class="text-gray-400 hover:text-white link-hover transition-colors">Download</a>
+                    <a href="#source" class="text-gray-400 hover:text-white link-hover transition-colors">Source</a>
+                    <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Smooth Scroll Script -->
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(30px)';
+            card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>

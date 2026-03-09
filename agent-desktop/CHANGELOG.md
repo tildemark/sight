@@ -5,6 +5,20 @@ All notable changes to the `agent-desktop` component will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-09
+
+### Added
+- **About Section**: Added a new About section in Settings displaying version information:
+  - Agent Version
+  - Tauri Version
+  - Rust Version
+  - Platform (OS/Architecture)
+- **Developer Credits**: Added "Developed by Alfredo Sanchez Jr" with link to https://sanchez.ph
+- **Runtime Server Configuration**: Changed from compile-time to runtime environment variables for server URL, allowing agents to work without rebuilds
+
+### Changed
+- Updated version to 1.1.0 in Cargo.toml and tauri.conf.json
+
 ## [1.0.3] - 2026-03-09
 
 ### Added

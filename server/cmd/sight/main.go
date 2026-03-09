@@ -26,6 +26,22 @@ type WebSocketMessage struct {
 	Payload        json.RawMessage `json:"payload,omitempty"`
 }
 
+// SyncLogsMessage is the full structure of a SYNC_LOGS WebSocket message from an agent.
+type SyncLogsMessage struct {
+	Type           string         `json:"type"`
+	TargetHostname string         `json:"target_hostname"`
+	Logs           []SyncLogEntry `json:"logs"`
+}
+
+// SyncLogEntry represents a single offline audit log entry from an agent.
+type SyncLogEntry struct {
+	ID        int64  `json:"id"`
+	Timestamp string `json:"timestamp"`
+	Action    string `json:"action"`
+	Status    string `json:"status"`
+	Output    string `json:"output"`
+}
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow all origins for dev
@@ -254,6 +270,45 @@ func handleWebSocket(hub *Hub, w http.ResponseWriter, r *http.Request, log *logg
 
 			// We can also broadcast this so the dashboard sees it if needed
 			hub.broadcast <- p
+		} else if msg.Type == "RUSTDESK_REQUEST" {
+			// Log the request attempt (pending user consent)
+			log.Info("RustDesk session requested", "target", msg.TargetHostname)
+			// Broadcast the request so the target agent receives it
+			hub.broadcast <- p
+		} else if msg.Type == "RUSTDESK_CONSENT" {
+			// Parse the consent response from the agent
+			var payload struct {
+				Accepted    bool   `json:"accepted"`
+				RustdeskID string `json:"rustdesk_id"`
+				Output     string `json:"output"`
+			}
+			if err := json.Unmarshal(msg.Payload, &payload); err == nil {
+				// Log the consent result to the database
+				db.LogAuditCommand(msg.TargetHostname, "RUSTDESK_CONNECT", payload.Accepted, payload.Output)
+				log.Info("RustDesk consent received", "target", msg.TargetHostname, "accepted", payload.Accepted, "rustdesk_id", payload.RustdeskID)
+			} else {
+				log.Error("Failed to parse RUSTDESK_CONSENT payload", "error", err)
+			}
+			// Broadcast the consent response so the dashboard receives it
+			hub.broadcast <- p
+		} else if msg.Type == "SYNC_LOGS" {
+			// Parse the full SYNC_LOGS message (logs are at the top level, not in payload)
+			var syncMsg SyncLogsMessage
+			if err := json.Unmarshal(p, &syncMsg); err != nil {
+				log.Error("Failed to parse SYNC_LOGS message", "error", err)
+				continue
+			}
+
+			hostname := syncMsg.TargetHostname
+			if hostname == "" {
+				hostname = "Unknown"
+			}
+
+			for _, entry := range syncMsg.Logs {
+				db.LogAuditCommand(hostname, entry.Action, entry.Status == "Success", entry.Output)
+			}
+
+			log.Info("Synced offline logs from agent", "hostname", hostname, "count", len(syncMsg.Logs))
 		} else {
 			log.Warn("Unknown WebSocket Message Type", "type", msg.Type)
 		}

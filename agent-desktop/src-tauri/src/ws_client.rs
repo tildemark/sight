@@ -39,8 +39,8 @@ pub async fn start_background_loop(app_handle: AppHandle) {
 
     loop {
         let config = crate::local_db::get_config(app_handle.clone()).unwrap_or_default();
-        let url = config.get("server_url").cloned().unwrap_or_else(|| "ws://localhost:8080/ws".to_string());
-        let fallback_url = config.get("fallback_config_url").cloned().unwrap_or_else(|| "http://localhost:3000/config.json".to_string());
+        let url = config.get("server_url").cloned().unwrap_or_else(|| std::env::var("SIGHT_SERVER_URL").unwrap_or_else(|_| "ws://localhost:8080/ws".to_string()));
+        let fallback_url = config.get("fallback_config_url").cloned().unwrap_or_else(|| std::env::var("SIGHT_FALLBACK_URL").unwrap_or_else(|_| "http://localhost:3000/config.json".to_string()));
 
         match connect_async(&url).await {
             Ok((mut ws_stream, _)) => {

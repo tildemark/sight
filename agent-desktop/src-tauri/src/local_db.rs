@@ -14,6 +14,15 @@ pub struct LocalLog {
     pub output: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AuditLogEntry {
+    pub id: i64,
+    pub timestamp: String,
+    pub action: String,
+    pub status: String,
+    pub output: String,
+}
+
 pub fn get_db_path(app_handle: &tauri::AppHandle) -> PathBuf {
     let mut path = app_handle.path().app_data_dir().expect("Failed to get AppData directory");
     std::fs::create_dir_all(&path).expect("Failed to create AppData directory");
@@ -36,6 +45,19 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
         (), // empty list of parameters
     )?;
 
+    // Migrate existing databases: add synced column if it doesn't exist yet.
+    // rusqlite returns SqliteFailure with extended_code 1 for "duplicate column name".
+    match conn.execute(
+        "ALTER TABLE audit_logs ADD COLUMN synced INTEGER NOT NULL DEFAULT 0",
+        (),
+    ) {
+        Ok(_) => {}
+        Err(rusqlite::Error::SqliteFailure(err, _)) if err.extended_code == 1 => {
+            // Column already exists — safe to ignore
+        }
+        Err(e) => return Err(e),
+    }
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
@@ -47,7 +69,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
     // Insert Default Configurations if they don't exist
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
-        ("server_url", "wss://api.sight.local/ws"),
+        ("server_url", "ws://localhost:8080/ws"),
     )?;
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
@@ -64,9 +86,70 @@ pub fn insert_log(app_handle: &tauri::AppHandle, action: &str, status: &str, out
     let timestamp = Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO audit_logs (timestamp, action, status, output) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO audit_logs (timestamp, action, status, output, synced) VALUES (?1, ?2, ?3, ?4, 0)",
         (&timestamp, action, status, output),
     )?;
+
+    Ok(())
+}
+
+pub fn insert_log_returning_id(app_handle: &tauri::AppHandle, action: &str, status: &str, output: &str) -> std::result::Result<i64, String> {
+    let db_path = get_db_path(app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let timestamp = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "INSERT INTO audit_logs (timestamp, action, status, output, synced) VALUES (?1, ?2, ?3, ?4, 0)",
+        (&timestamp, action, status, output),
+    ).map_err(|e| e.to_string())?;
+
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn get_unsynced_logs(app_handle: &tauri::AppHandle) -> std::result::Result<Vec<AuditLogEntry>, String> {
+    let db_path = get_db_path(app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, timestamp, action, status, output FROM audit_logs WHERE synced = 0 ORDER BY id ASC"
+    ).map_err(|e| e.to_string())?;
+
+    let log_iter = stmt.query_map([], |row| {
+        Ok(AuditLogEntry {
+            id: row.get(0)?,
+            timestamp: row.get(1)?,
+            action: row.get(2)?,
+            status: row.get(3)?,
+            output: row.get(4)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut logs = Vec::new();
+    for log in log_iter {
+        logs.push(log.map_err(|e| e.to_string())?);
+    }
+
+    Ok(logs)
+}
+
+pub fn mark_logs_synced(app_handle: &tauri::AppHandle, ids: Vec<i64>) -> std::result::Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    let db_path = get_db_path(app_handle);
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
+
+    // Build a parameterised IN clause: UPDATE ... WHERE id IN (?,?,?)
+    let placeholders: Vec<String> = ids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+    let sql = format!(
+        "UPDATE audit_logs SET synced = 1 WHERE id IN ({})",
+        placeholders.join(", ")
+    );
+
+    let params: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+    conn.execute(&sql, params.as_slice()).map_err(|e| e.to_string())?;
 
     Ok(())
 }

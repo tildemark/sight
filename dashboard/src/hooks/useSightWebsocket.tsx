@@ -72,6 +72,21 @@ export const useSightWebsocket = () => {
                                 duration: 10000,
                             });
                         }
+                    } else if (msg.type === "RUSTDESK_CONSENT" && msg.payload && msg.target_hostname) {
+                        const { accepted, rustdesk_id, output } = msg.payload;
+                        if (accepted) {
+                            // Open the deep-link
+                            window.location.href = `rustdesk://connect/${rustdesk_id}`;
+                            toast.success(`[${msg.target_hostname}] Remote Desktop session accepted`, {
+                                description: output,
+                                duration: 6000,
+                            });
+                        } else {
+                            toast.error(`[${msg.target_hostname}] Remote Desktop session denied`, {
+                                description: output,
+                                duration: 8000,
+                            });
+                        }
                     }
                 } catch (error) {
                     console.error("Failed to parse websocket message:", error);
@@ -138,5 +153,16 @@ export const useSightWebsocket = () => {
         return false;
     };
 
-    return { agents, isConnected, sendCommand };
+    const requestRustdeskSession = (hostname: string, rustdeskId: string): void => {
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+            ws.current.send(JSON.stringify({
+                type: "RUSTDESK_REQUEST",
+                target_hostname: hostname,
+                action: "RUSTDESK_CONNECT",
+                payload: { rustdesk_id: rustdeskId }
+            }));
+        }
+    };
+
+    return { agents, isConnected, sendCommand, requestRustdeskSession };
 };

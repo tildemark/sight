@@ -87,6 +87,20 @@ fn run_local_command(command: String) -> Result<String, String> {
     }
 }
 
+/// Returns version information for the About section
+#[tauri::command]
+fn get_version_info() -> serde_json::Value {
+    // Note: CARGO_PKG_RUST_VERSION is not available at runtime, so we show a static version
+    // The actual Rust version used is 1.70+ as documented in the project
+    serde_json::json!({
+        "agent_version": env!("CARGO_PKG_VERSION"),
+        "tauri_version": "2.0",
+        "rust_version": "1.70+",
+        "os": std::env::consts::OS,
+        "arch": std::env::consts::ARCH,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -211,7 +225,8 @@ pub fn run() {
             set_rustdesk_password,
             local_db::get_config,
             local_db::set_config,
-            run_local_command
+            run_local_command,
+            get_version_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

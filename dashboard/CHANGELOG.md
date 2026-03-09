@@ -5,6 +5,14 @@ All notable changes to the `dashboard` Next.js frontend will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-09
+
+### Added
+- **Docker Support**: Added Dockerfile for containerized deployment
+- **Deployment Configs**: Added docker-compose.demo.yml and docker-compose.prod.yml for different environments
+- **Server Config Files**: Added config-demo.json and config-prod.json for agent server URL configuration
+- **Next.js Standalone**: Updated next.config.ts to support standalone output for Docker
+
 ## [1.0.2] - 2026-03-09
 
 ### Added

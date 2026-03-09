@@ -1,0 +1,91 @@
+# Sight Production Server Docker Compose
+# For sight.avegabros.org - Dashboard only (no landing page)
+
+services:
+  # Infrastructure services
+  postgres:
+    image: postgres:15-alpine
+    container_name: sight-postgres
+    environment:
+      POSTGRES_USER: sight_admin
+      POSTGRES_PASSWORD: sight_password
+      POSTGRES_DB: sight_db
+    ports:
+      - "5445:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - net
+
+  redis:
+    image: redis:7-alpine
+    container_name: sight-redis
+    ports:
+      - "6385:6379"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    networks:
+      - net
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: sight-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+    networks:
+      - net
+
+  # Go Backend Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sight-server
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://sight_admin:sight_password@sight-postgres:5432/sight_db?sslmode=disable
+      - REDIS_URL=redis://sight-redis:6379
+      - MQTT_BROKER=tcp://sight-mosquitto:1883
+    depends_on:
+      - postgres
+      - redis
+      - mosquitto
+    restart: unless-stopped
+    networks:
+      - net
+
+  # Dashboard (Next.js)
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: sight-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SIGHT_API=ws://sight-server:8080
+    depends_on:
+      - server
+    restart: unless-stopped
+    networks:
+      - net
+
+networks:
+  net:
+    name: net
+    external: true
+
+volumes:
+  pgdata:
+  redisdata:
+  mosquitto_data:
+  mosquitto_log:

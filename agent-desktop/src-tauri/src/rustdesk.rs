@@ -13,13 +13,31 @@ fn find_rustdesk_exe() -> Option<String> {
     // 2. Windows: check common install directories
     #[cfg(target_os = "windows")]
     {
-        let candidates = [
+        // First try standard install locations
+        let standard_candidates = [
             r"C:\Program Files\RustDesk\rustdesk.exe",
             r"C:\Program Files (x86)\RustDesk\rustdesk.exe",
         ];
-        for path in &candidates {
+        for path in &standard_candidates {
             if Path::new(path).exists() {
                 return Some(path.to_string());
+            }
+        }
+        
+        // Fallback: scan Downloads folder for any rustdesk*.exe (version changes on update)
+        if let Ok(home) = std::env::var("USERPROFILE") {
+            let downloads = format!(r"{}\Downloads", home);
+            if let Ok(entries) = std::fs::read_dir(&downloads) {
+                for entry in entries.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.to_lowercase().starts_with("rustdesk") && name.to_lowercase().ends_with(".exe") {
+                            let full_path = entry.path();
+                            if full_path.is_file() {
+                                return Some(full_path.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -110,14 +128,66 @@ pub fn get_rustdesk_id() -> Option<String> {
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    let id = raw.trim().to_string();
+    // RustDesk outputs debug info to stdout before the ID.
+    // Extract the last non-empty line which should be the numeric ID.
+    let id = raw
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .last()
+        .map(|line| line.trim().to_string())
+        .unwrap_or_default();
 
     // A valid RustDesk ID is a non-empty numeric string
     if id.is_empty() || !id.chars().all(|c| c.is_ascii_digit()) {
-        println!("[RustDesk] Unexpected `--get-id` output: {:?}", id);
+        println!("[RustDesk] Unexpected `--get-id` output: {:?}", raw);
         return None;
     }
 
     println!("[RustDesk] Discovered peer ID: {}", id);
     Some(id)
+}
+
+/// Sets the RustDesk password for unattended access.
+/// Uses the `--set-password` flag which is available in RustDesk.
+/// Returns Ok(true) on success, Ok(false) if RustDesk is not installed,
+/// or Err with the error message if the command fails.
+pub fn set_unattended_password(password: &str) -> Result<bool, String> {
+    let exe = match find_rustdesk_exe() {
+        Some(path) => path,
+        None => {
+            println!("[RustDesk] Cannot set password: RustDesk not found");
+            return Ok(false);
+        }
+    };
+
+    let output = {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            Command::new(&exe)
+                .arg("--set-password")
+                .arg(password)
+                .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                .output()
+                .map_err(|e| format!("Failed to execute RustDesk: {}", e))?
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new(&exe)
+                .arg("--set-password")
+                .arg(password)
+                .output()
+                .map_err(|e| format!("Failed to execute RustDesk: {}", e))?
+        }
+    };
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        println!("[RustDesk] --set-password failed: {}", stderr);
+        return Err(format!("Failed to set password: {}", stderr.trim()));
+    }
+
+    println!("[RustDesk] Password set successfully");
+    Ok(true)
 }

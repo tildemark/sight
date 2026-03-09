@@ -82,8 +82,8 @@ services:
   # Landing Page (Nginx)
   landing:
     build:
-      context: .
-      dockerfile: landing/Dockerfile
+      context: ./landing
+      dockerfile: Dockerfile
     container_name: sight-landing
     ports:
       - "3101:80"

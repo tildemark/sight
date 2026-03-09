@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor } from "lucide-react";
+import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor, ChevronDown, ChevronRight, Ticket, Wifi, RefreshCw, RotateCcw, Network, Terminal } from "lucide-react";
 import { AuditLogs } from "./AuditLogs";
 import { Settings } from "./Settings";
 
@@ -16,6 +16,8 @@ interface Telemetry {
   disk_total: number;
   /** RustDesk peer ID for this machine. Null if RustDesk is not installed. */
   rustdesk_id?: string | null;
+  /** Whether RustDesk has a password set for unattended access */
+  rustdesk_password_set?: boolean;
 }
 
 function App() {
@@ -23,6 +25,10 @@ function App() {
   const [stats, setStats] = useState<Telemetry | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "logs" | "settings">("dashboard");
+  const [supportFormExpanded, setSupportFormExpanded] = useState(false);
+  const [quickToolsExpanded, setQuickToolsExpanded] = useState(false);
+  const [runningCommand, setRunningCommand] = useState<string | null>(null);
+  const [commandOutput, setCommandOutput] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -45,6 +51,19 @@ function App() {
     const interval = setInterval(fetchStats, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Run a local command (for quick tools)
+  const runLocalCommand = async (command: string, label: string) => {
+    setRunningCommand(label);
+    setCommandOutput(null);
+    try {
+      const output = await invoke<string>("run_local_command", { command });
+      setCommandOutput(output);
+    } catch (e) {
+      setCommandOutput(`Error: ${e}`);
+    }
+    setRunningCommand(null);
+  };
 
   return (
     <div className="min-h-[100dvh] h-full bg-background text-foreground flex flex-col items-center p-6 space-y-6 overflow-y-auto">
@@ -152,24 +171,128 @@ function App() {
             )}
           </div>
 
-          {/* Simple Ticketing Form */}
-          <div className="w-full max-w-sm space-y-3 bg-card p-5 rounded-xl border shadow-sm mt-4">
-            <h3 className="font-semibold text-base flex items-center gap-2">Request IT Support</h3>
-            <textarea
-              placeholder="Describe your issue..."
-              className="w-full min-h-[80px] bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={ticketDescription}
-              onChange={(e) => setTicketDescription(e.target.value)}
-            />
+          {/* Quick Tools - for tech support requests */}
+          <div className="w-full max-w-sm bg-card rounded-xl border shadow-sm mt-4 overflow-hidden">
             <button
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 font-medium text-sm transition-colors"
-              onClick={() => {
-                alert("Ticket submitted securely!");
-                setTicketDescription("");
-              }}
+              onClick={() => setQuickToolsExpanded(!quickToolsExpanded)}
+              className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
             >
-              Submit Ticket
+              <h3 className="font-semibold text-base flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-green-500" />
+                Quick Tools
+              </h3>
+              <span className="text-xs text-muted-foreground mr-2">Run common network commands</span>
+              {quickToolsExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
             </button>
+            
+            {quickToolsExpanded && (
+              <div className="px-5 pb-5 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                <p className="text-xs text-muted-foreground">
+                  Click a button to run a command. Use these when IT support asks you to troubleshoot connectivity issues.
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => runLocalCommand("ipconfig /flushdns", "Flush DNS")}
+                    disabled={runningCommand !== null}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-start gap-2 border border-border"
+                  >
+                    <RefreshCw className="h-3 w-3" /> Flush DNS
+                  </button>
+                  <button
+                    onClick={() => runLocalCommand("ipconfig /release", "Release IP")}
+                    disabled={runningCommand !== null}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-start gap-2 border border-border"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Release IP
+                  </button>
+                  <button
+                    onClick={() => runLocalCommand("ipconfig /renew", "Renew IP")}
+                    disabled={runningCommand !== null}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-start gap-2 border border-border"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Renew IP
+                  </button>
+                  <button
+                    onClick={() => runLocalCommand("netsh wlan show interfaces", "Show WiFi")}
+                    disabled={runningCommand !== null}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-start gap-2 border border-border"
+                  >
+                    <Wifi className="h-3 w-3" /> Show WiFi
+                  </button>
+                  <button
+                    onClick={() => runLocalCommand("ipconfig /all", "IP Config")}
+                    disabled={runningCommand !== null}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-start gap-2 border border-border"
+                  >
+                    <Network className="h-3 w-3" /> IP Config
+                  </button>
+                  <button
+                    onClick={() => runLocalCommand("ping 8.8.8.8 -n 4", "Ping Test")}
+                    disabled={runningCommand !== null}
+                    className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-start gap-2 border border-border"
+                  >
+                    <Activity className="h-3 w-3" /> Ping Test
+                  </button>
+                </div>
+
+                {/* Command Output */}
+                {runningCommand && (
+                  <div className="text-xs text-muted-foreground text-center py-2">
+                    Running "{runningCommand}"...
+                  </div>
+                )}
+                {commandOutput && (
+                  <div className="bg-muted/50 rounded-md p-2 max-h-32 overflow-y-auto">
+                    <pre className="text-xs font-mono whitespace-pre-wrap text-muted-foreground">
+                      {commandOutput}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Collapsible Request IT Support Form */}
+          <div className="w-full max-w-sm bg-card rounded-xl border shadow-sm mt-4 overflow-hidden">
+            <button
+              onClick={() => setSupportFormExpanded(!supportFormExpanded)}
+              className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+            >
+              <h3 className="font-semibold text-base flex items-center gap-2">
+                <Ticket className="h-4 w-4 text-blue-500" />
+                Request IT Support
+              </h3>
+              {supportFormExpanded ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            
+            {supportFormExpanded && (
+              <div className="px-5 pb-5 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                <textarea
+                  placeholder="Describe your issue..."
+                  className="w-full min-h-[80px] bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={ticketDescription}
+                  onChange={(e) => setTicketDescription(e.target.value)}
+                />
+                <button
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 font-medium text-sm transition-colors"
+                  onClick={() => {
+                    alert("Ticket submitted securely!");
+                    setTicketDescription("");
+                  }}
+                >
+                  Submit Ticket
+                </button>
+              </div>
+            )}
           </div>
         </>
       ) : activeTab === "logs" ? (

@@ -5,6 +5,19 @@ All notable changes to the `agent-desktop` component will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-03-09
+
+### Added
+- **Quick Tools for End Users**: Added a collapsible "Quick Tools" section in the agent UI that allows end users to run common network commands locally when asked by IT support:
+  - Flush DNS Cache
+  - Release IP Address
+  - Renew IP Address
+  - Show WiFi SSID
+  - Show Full IP Configuration
+  - Ping Internet Test
+- **Local Command Execution**: Added `run_local_command` Tauri command to enable local shell command execution from the agent UI.
+- **Enhanced Consent Dialog Visibility**: Modified consent dialogs to bring the agent window to the front and set always-on-top, ensuring users see remote command approval requests.
+
 ## [1.0.2] - 2026-03-08
 
 ### Added

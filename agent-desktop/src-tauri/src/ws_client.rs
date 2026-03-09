@@ -22,6 +22,14 @@ pub struct CommandResultPayload {
     pub output: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SyncLogsMessage {
+    #[serde(rename = "type")]
+    pub msg_type: String,
+    pub target_hostname: String,
+    pub logs: Vec<local_db::AuditLogEntry>,
+}
+
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
@@ -39,6 +47,37 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                 println!("Connected to {}", url);
                 *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = true;
                 fail_count = 0;
+
+                // --- Offline sync: send any unsynced logs accumulated while disconnected ---
+                let sync_hostname = sysinfo::System::host_name().unwrap_or_else(|| "Unknown".to_string());
+                match local_db::get_unsynced_logs(&app_handle) {
+                    Ok(unsynced) if !unsynced.is_empty() => {
+                        let ids: Vec<i64> = unsynced.iter().map(|e| e.id).collect();
+                        let sync_msg = SyncLogsMessage {
+                            msg_type: "SYNC_LOGS".to_string(),
+                            target_hostname: sync_hostname.clone(),
+                            logs: unsynced,
+                        };
+                        if let Ok(json) = serde_json::to_string(&sync_msg) {
+                            match ws_stream.send(tokio_tungstenite::tungstenite::protocol::Message::Text(json.into())).await {
+                                Ok(_) => {
+                                    println!("Sent SYNC_LOGS for {} offline log(s)", ids.len());
+                                    if let Err(e) = local_db::mark_logs_synced(&app_handle, ids) {
+                                        println!("Warning: failed to mark offline logs as synced: {}", e);
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("Warning: failed to send SYNC_LOGS: {}", e);
+                                }
+                            }
+                        }
+                    }
+                    Ok(_) => {} // no unsynced logs
+                    Err(e) => {
+                        println!("Warning: failed to query unsynced logs: {}", e);
+                    }
+                }
+                // --- End offline sync ---
 
                 let mut sys = System::new_all();
 
@@ -77,27 +116,65 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             _ => action.clone(),
                                                         };
                                                         
-                                                        // Request User Consent
-                                                        let prompt_msg = format!("IT Administrator is requesting to: {}\n\nDo you accept?", friendly_action);
-                                                        let (tx_consent, rx_consent) = tokio::sync::oneshot::channel();
-                                                        
-                                                        app_handle.dialog()
-                                                            .message(prompt_msg)
-                                                            .kind(MessageDialogKind::Warning)
-                                                            .title("Security Action Required")
-                                                            .buttons(MessageDialogButtons::OkCancelCustom("Accept".to_string(), "Deny".to_string()))
-                                                            .show(move |result| {
-                                                                let _ = tx_consent.send(result);
-                                                            });
-                                                            
-                                                        let consent_given = match rx_consent.await {
-                                                            Ok(accepted) => accepted,
-                                                            Err(_) => false,
+                                                        // Check for blanket consent (24-hour grant)
+                                                        let consent_expires_at = {
+                                                            let state = app_handle.state::<crate::AppState>();
+                                                            let consent = *state.consent_granted_until.lock().unwrap();
+                                                            consent
                                                         };
+                                                        let consent_was_already_active = consent_expires_at.map(|instant| instant > std::time::Instant::now()).unwrap_or(false);
+                                                        
+                                                        let mut consent_given = false;
+                                                        let dialog_was_shown = !consent_was_already_active;
+                                                        
+                                                        if consent_was_already_active {
+                                                            // Blanket consent active — skip dialog
+                                                            println!("Blanket consent active — skipping dialog for: {}", action);
+                                                            consent_given = true;
+                                                        } else {
+                                                            // Show consent dialog
+                                                            let prompt_msg = format!("IT Administrator is requesting to: {}\n\nDo you accept?", friendly_action);
+                                                            
+                                                            // Bring the main window to front before showing dialog
+                                                            if let Some(window) = app_handle.get_webview_window("main") {
+                                                                let _ = window.show();
+                                                                let _ = window.set_focus();
+                                                                let _ = window.set_always_on_top(true);
+                                                            }
+                                                            
+                                                            let (tx_consent, rx_consent) = tokio::sync::oneshot::channel();
+                                                            
+                                                            app_handle.dialog()
+                                                                .message(prompt_msg)
+                                                                .kind(MessageDialogKind::Warning)
+                                                                .title("Security Action Required")
+                                                                .buttons(MessageDialogButtons::OkCancelCustom("Accept".to_string(), "Deny".to_string()))
+                                                                .show(move |result| {
+                                                                    let _ = tx_consent.send(result);
+                                                                });
+                                                            
+                                                            consent_given = match rx_consent.await {
+                                                                Ok(accepted) => accepted,
+                                                                Err(_) => false,
+                                                            };
+                                                            
+                                                            // If user accepted and dialog was shown, grant blanket consent
+                                                            if consent_given {
+                                                                let state = app_handle.state::<crate::AppState>();
+                                                                *state.consent_granted_until.lock().unwrap() = Some(std::time::Instant::now() + std::time::Duration::from_secs(86400));
+                                                                
+                                                                // Show notification about blanket consent grant
+                                                                app_handle.dialog()
+                                                                    .message("IT Support Access Granted — Remote commands will be executed without prompting for 24 hours. Restart the agent to revoke.")
+                                                                    .title("Access Granted")
+                                                                    .kind(MessageDialogKind::Info)
+                                                                    .show(|_| {});
+                                                            }
+                                                        }
 
                                                         if !consent_given {
                                                             println!("User denied command execution: {}", action);
-                                                            let _ = local_db::insert_log(&app_handle, action, "Denied", "User denied the remote execution request.");
+                                                            let denied_log_id = local_db::insert_log_returning_id(&app_handle, action, "Denied", "User denied the remote execution request.").ok();
                                                             let reply = WebSocketMessage {
                                                                 msg_type: "COMMAND_RESULT".to_string(),
                                                                 target_hostname: Some(sys_hostname.clone()),
@@ -108,7 +185,11 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                 }).unwrap()),
                                                             };
                                                             if let Ok(json) = serde_json::to_string(&reply) {
-                                                                let _ = tx.send(Message::Text(json.into())).await;
+                                                                if tx.send(Message::Text(json.into())).await.is_ok() {
+                                                                    if let Some(log_id) = denied_log_id {
+                                                                        let _ = local_db::mark_logs_synced(&app_handle, vec![log_id]);
+                                                                    }
+                                                                }
                                                             }
                                                             continue;
                                                         }
@@ -116,7 +197,7 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                         println!("User accepted. Executing Remote Command: {}", action);
                                                         
                                                         if action == "UPDATE_AGENT" {
-                                                            let _ = local_db::insert_log(&app_handle, action, "Accepted", "Update initiated. The agent will disconnect briefly while installing...");
+                                                            let update_log_id = local_db::insert_log_returning_id(&app_handle, action, "Accepted", "Update initiated. The agent will disconnect briefly while installing...").ok();
                                                             let reply = WebSocketMessage {
                                                                 msg_type: "COMMAND_RESULT".to_string(),
                                                                 target_hostname: Some(sys_hostname.clone()),
@@ -127,7 +208,11 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                 }).unwrap()),
                                                             };
                                                             if let Ok(json) = serde_json::to_string(&reply) {
-                                                                let _ = tx.send(Message::Text(json.into())).await;
+                                                                if tx.send(Message::Text(json.into())).await.is_ok() {
+                                                                    if let Some(log_id) = update_log_id {
+                                                                        let _ = local_db::mark_logs_synced(&app_handle, vec![log_id]);
+                                                                    }
+                                                                }
                                                             }
 
                                                             let app_handle_clone = app_handle.clone();
@@ -148,7 +233,10 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             });
 
                                                         } else if action == "RESTART_AGENT" {
-                                                            let _ = local_db::insert_log(&app_handle, action, "Accepted", "Agent restart sequence initiated.");
+                                                            // RESTART_AGENT doesn't send a COMMAND_RESULT reply, so mark synced immediately
+                                                            if let Ok(log_id) = local_db::insert_log_returning_id(&app_handle, action, "Accepted", "Agent restart sequence initiated.") {
+                                                                let _ = local_db::mark_logs_synced(&app_handle, vec![log_id]);
+                                                            }
                                                             if let Ok(exe_path) = std::env::current_exe() {
                                                                 let pid = std::process::id();
                                                                 let ps_script = format!(
@@ -191,28 +279,28 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                 cmd.arg("-c").arg(action);
                                                             }
 
-                                                            let result_payload = match cmd.output() {
+                                                            let (result_payload, cmd_log_id) = match cmd.output() {
                                                                 Ok(output) => {
                                                                     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
                                                                     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                                                                     let combined = format!("{}{}", stdout, stderr);
                                                                     let final_output = if combined.is_empty() { "Command executed without output.".to_string() } else { combined };
                                                                     
-                                                                    let _ = local_db::insert_log(&app_handle, action, if output.status.success() { "Success" } else { "Failed" }, &final_output);
+                                                                    let log_id = local_db::insert_log_returning_id(&app_handle, action, if output.status.success() { "Success" } else { "Failed" }, &final_output).ok();
 
-                                                                    CommandResultPayload {
+                                                                    (CommandResultPayload {
                                                                         success: output.status.success(),
                                                                         output: final_output
-                                                                    }
+                                                                    }, log_id)
                                                                 },
                                                                 Err(e) => {
                                                                     let err_msg = format!("Failed to spawn command: {}", e);
-                                                                    let _ = local_db::insert_log(&app_handle, action, "Failed", &err_msg);
+                                                                    let log_id = local_db::insert_log_returning_id(&app_handle, action, "Failed", &err_msg).ok();
 
-                                                                    CommandResultPayload {
+                                                                    (CommandResultPayload {
                                                                         success: false,
                                                                         output: err_msg
-                                                                    }
+                                                                    }, log_id)
                                                                 }
                                                             };
                                                             
@@ -224,9 +312,73 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             };
                                                             
                                                             if let Ok(json) = serde_json::to_string(&reply) {
-                                                                let _ = tx.send(Message::Text(json.into())).await;
+                                                                if tx.send(Message::Text(json.into())).await.is_ok() {
+                                                                    if let Some(log_id) = cmd_log_id {
+                                                                        let _ = local_db::mark_logs_synced(&app_handle, vec![log_id]);
+                                                                    }
+                                                                }
                                                             }
                                                         }
+                                                    }
+                                                }
+                                            }
+                                        } else if msg.msg_type == "RUSTDESK_REQUEST" {
+                                            // Only handle if this message targets this hostname
+                                            if let Some(target) = &msg.target_hostname {
+                                                if target == &sys_hostname {
+                                                    // Extract rustdesk_id from payload
+                                                    let rustdesk_id = msg.payload
+                                                        .as_ref()
+                                                        .and_then(|p| p.get("rustdesk_id"))
+                                                        .and_then(|v| v.as_str())
+                                                        .unwrap_or("Unknown")
+                                                        .to_string();
+                                                    
+                                                    // Show consent dialog — ALWAYS ask, never use blanket consent for RustDesk
+                                                    let prompt_msg = format!(
+                                                        "IT Administrator is requesting to start a Remote Desktop session on this computer.\n\nRustDesk Peer ID: {}\n\nDo you accept?",
+                                                        rustdesk_id
+                                                    );
+                                                    
+                                                    // Bring the main window to front before showing dialog
+                                                    if let Some(window) = app_handle.get_webview_window("main") {
+                                                        let _ = window.show();
+                                                        let _ = window.set_focus();
+                                                        let _ = window.set_always_on_top(true);
+                                                    }
+                                                    
+                                                    let (tx_consent, rx_consent) = tokio::sync::oneshot::channel();
+                                                    app_handle.dialog()
+                                                        .message(prompt_msg)
+                                                        .kind(MessageDialogKind::Warning)
+                                                        .title("Remote Desktop Access Requested")
+                                                        .buttons(MessageDialogButtons::OkCancelCustom("Accept".to_string(), "Deny".to_string()))
+                                                        .show(move |result| { let _ = tx_consent.send(result); });
+                                                    
+                                                    let consent_given = rx_consent.await.unwrap_or(false);
+                                                    let status = if consent_given { "Accepted" } else { "Denied" };
+                                                    let output = if consent_given {
+                                                        format!("User accepted RustDesk remote desktop session. Peer ID: {}", rustdesk_id)
+                                                    } else {
+                                                        "User denied RustDesk remote desktop session request.".to_string()
+                                                    };
+                                                    
+                                                    // Log locally
+                                                    let _ = local_db::insert_log_returning_id(&app_handle, "RUSTDESK_CONNECT", status, &output);
+                                                    
+                                                    // Send RUSTDESK_CONSENT back to server
+                                                    let consent_reply = WebSocketMessage {
+                                                        msg_type: "RUSTDESK_CONSENT".to_string(),
+                                                        target_hostname: Some(sys_hostname.clone()),
+                                                        action: Some("RUSTDESK_CONNECT".to_string()),
+                                                        payload: Some(serde_json::json!({
+                                                            "accepted": consent_given,
+                                                            "rustdesk_id": rustdesk_id,
+                                                            "output": output
+                                                        })),
+                                                    };
+                                                    if let Ok(json) = serde_json::to_string(&consent_reply) {
+                                                        let _ = tx.send(Message::Text(json.into())).await;
                                                     }
                                                 }
                                             }
@@ -258,7 +410,8 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                             // Read the cached RustDesk ID from AppState (refreshed hourly by lib.rs)
                             let rustdesk_id = {
                                 let state = app_handle.state::<crate::AppState>();
-                                state.rustdesk_id.lock().unwrap().clone()
+                                let val = state.rustdesk_id.lock().unwrap().clone();
+                                val
                             };
                             let telemetry = get_telemetry(&mut sys, &mut dhcp_val, rustdesk_id);
                             

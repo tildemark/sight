@@ -1,10 +1,11 @@
 "use client";
 
 import { useSightWebsocket, TelemetryData } from "@/hooks/useSightWebsocket";
-import { HardDrive, Cpu, ShieldCheck, Activity, Settings2, ChevronDown, ChevronRight, Power, RefreshCw, Network, Zap, DownloadCloud, Monitor } from "lucide-react";
+import { HardDrive, Cpu, ShieldCheck, Activity, Settings2, ChevronDown, ChevronRight, Power, RefreshCw, Network, Zap, DownloadCloud, Monitor, Wifi, AppWindow, FileText, Globe, Signal, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
-function AgentRow({ agent, sendCommand }: { agent: TelemetryData; sendCommand: (hostname: string, action: string) => boolean }) {
+function AgentRow({ agent, sendCommand, requestRustdeskSession }: { agent: TelemetryData; sendCommand: (hostname: string, action: string) => boolean; requestRustdeskSession: (hostname: string, rustdeskId: string) => void }) {
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
@@ -165,16 +166,115 @@ function AgentRow({ agent, sendCommand }: { agent: TelemetryData; sendCommand: (
 
                                     {/* RustDesk Remote Desktop — only shown when the agent has reported a peer ID */}
                                     {agent.rustdesk_id && (
-                                        <a
-                                            href={`rustdesk://connect/${agent.rustdesk_id}`}
-                                            onClick={(e) => e.stopPropagation()}
-                                            title={`Open RustDesk and connect to ${agent.hostname} (ID: ${agent.rustdesk_id})`}
-                                            className="col-span-2 px-3 py-2 bg-sky-900/40 text-sky-300 text-xs rounded-md hover:bg-sky-800/60 flex items-center justify-center gap-2 border border-sky-500/50 mt-1 no-underline">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toast.info("Remote Desktop request sent — waiting for user consent...");
+                                                requestRustdeskSession(agent.hostname, agent.rustdesk_id!);
+                                            }}
+                                            title={`Request remote desktop session to ${agent.hostname} (ID: ${agent.rustdesk_id})`}
+                                            className="col-span-2 px-3 py-2 bg-sky-900/40 text-sky-300 text-xs rounded-md hover:bg-sky-800/60 flex items-center justify-center gap-2 border border-sky-500/50 mt-1">
                                             <Monitor className="h-4 w-4" />
                                             Connect via RustDesk
                                             <span className="font-mono text-sky-400/70 ml-1">({agent.rustdesk_id})</span>
-                                        </a>
+                                        </button>
                                     )}
+                                </div>
+                            </div>
+
+                            {/* Network & System Admin Panel */}
+                            <div className="space-y-4 bg-background border rounded-md p-4">
+                                <h3 className="text-sm font-semibold flex items-center gap-2 border-b pb-2">
+                                    <Settings2 className="h-4 w-4 text-purple-500" /> Network & System Admin
+                                </h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); sendCommand(agent.hostname, "taskkill /f /im explorer.exe && start explorer.exe"); }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <RefreshCw className="h-4 w-4 text-blue-400" /> Restart Explorer
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); sendCommand(agent.hostname, "netsh wlan show interfaces"); }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <Wifi className="h-4 w-4 text-emerald-400" /> Show WiFi SSID
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); sendCommand(agent.hostname, "taskmgr"); }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <Activity className="h-4 w-4 text-orange-400" /> Task Manager
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); sendCommand(agent.hostname, "powershell -Command \"Get-EventLog -LogName Application -Newest 50 | Format-Table TimeGenerated, Source, Message -AutoSize -Wrap\""); }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <FileText className="h-4 w-4 text-amber-400" /> App Logs
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const domain = window.prompt("Enter domain name for DNS lookup:", "google.com");
+                                            if (domain) sendCommand(agent.hostname, "nslookup " + domain);
+                                        }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <Globe className="h-4 w-4 text-cyan-400" /> DNS Lookup
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const target = window.prompt("Enter target IP or hostname for trace route:", "8.8.8.8");
+                                            if (target) sendCommand(agent.hostname, "tracert " + target);
+                                        }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <Signal className="h-4 w-4 text-violet-400" /> Trace Route
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm("Are you sure you want to release the IP address? This will disconnect the network temporarily.")) {
+                                                sendCommand(agent.hostname, "ipconfig /release");
+                                            }
+                                        }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <RotateCcw className="h-4 w-4 text-red-400" /> Release IP
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm("Are you sure you want to renew the IP address?")) {
+                                                sendCommand(agent.hostname, "ipconfig /renew");
+                                            }
+                                        }}
+                                        className="px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-start gap-2 border border-border">
+                                        <RotateCcw className="h-4 w-4 text-green-400" /> Renew IP
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm("WARNING: This will reset the Windows network stack (Winsock). The network connection may be temporarily lost. Do you want to continue?")) {
+                                                sendCommand(agent.hostname, "netsh winsock reset");
+                                            }
+                                        }}
+                                        className="col-span-2 px-3 py-2 bg-red-900/30 text-red-200 text-xs rounded-md hover:bg-red-900/50 flex items-center justify-center gap-2 border border-red-500/30 mt-1">
+                                        <RotateCcw className="h-4 w-4" /> Reset Network Stack (Winsock)
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (window.confirm("WARNING: This will reset TCP/IP stack. The network connection may be temporarily lost. Do you want to continue?")) {
+                                                sendCommand(agent.hostname, "netsh int ip reset");
+                                            }
+                                        }}
+                                        className="col-span-2 px-3 py-2 bg-red-900/30 text-red-200 text-xs rounded-md hover:bg-red-900/50 flex items-center justify-center gap-2 border border-red-500/30 mt-1">
+                                        <RotateCcw className="h-4 w-4" /> Reset TCP/IP Stack
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const app = window.prompt("Enter application name to search (partial name works):");
+                                            if (app) sendCommand(agent.hostname, "powershell -Command \"Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* | Select-Object DisplayName, DisplayVersion, Publisher | Where-Object {$_.DisplayName -like '*" + app + "*'} | Format-Table -AutoSize\"");
+                                        }}
+                                        className="col-span-2 px-3 py-2 bg-secondary text-secondary-foreground text-xs rounded-md hover:bg-secondary/80 flex items-center justify-center gap-2 border border-border mt-1">
+                                        <AppWindow className="h-4 w-4" /> Search Installed Apps
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -186,7 +286,7 @@ function AgentRow({ agent, sendCommand }: { agent: TelemetryData; sendCommand: (
 }
 
 export function AgentTable() {
-    const { agents, isConnected, sendCommand } = useSightWebsocket();
+    const { agents, isConnected, sendCommand, requestRustdeskSession } = useSightWebsocket();
     const agentList = Object.values(agents).sort((a, b) => a.hostname.localeCompare(b.hostname));
 
     // Group agents by device_type
@@ -236,7 +336,7 @@ export function AgentTable() {
                                     </td>
                                 </tr>
                                 {group.map((agent) => (
-                                    <AgentRow key={agent.hostname} agent={agent} sendCommand={sendCommand} />
+                                    <AgentRow key={agent.hostname} agent={agent} sendCommand={sendCommand} requestRustdeskSession={requestRustdeskSession} />
                                 ))}
                             </tbody>
                         ))

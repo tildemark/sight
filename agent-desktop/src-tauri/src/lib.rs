@@ -20,6 +20,10 @@ pub struct AppState {
     /// so that agents that install RustDesk after the agent starts will
     /// eventually report their ID without requiring a restart.
     pub rustdesk_id: Mutex<Option<String>>,
+    /// Blanket consent grant timestamp. After user accepts any command,
+    /// store an Instant for 24 hours. Commands will execute without prompting
+    /// until this timestamp expires. Resets on agent restart.
+    pub consent_granted_until: Mutex<Option<std::time::Instant>>,
 }
 
 #[tauri::command]
@@ -40,6 +44,47 @@ fn get_local_telemetry(state: tauri::State<AppState>) -> telemetry::TelemetryDat
 #[tauri::command]
 fn get_rustdesk_id(state: tauri::State<AppState>) -> Option<String> {
     state.rustdesk_id.lock().unwrap().clone()
+}
+
+/// Sets the RustDesk password for unattended access.
+/// Returns Ok(true) if successful, Ok(false) if RustDesk is not installed,
+/// or Err if the command fails.
+#[tauri::command]
+fn set_rustdesk_password(password: String) -> Result<bool, String> {
+    rustdesk::set_unattended_password(&password)
+}
+
+/// Runs a local shell command and returns the output.
+/// This is used by the agent's Quick Tools for end users to run commands locally.
+#[tauri::command]
+fn run_local_command(command: String) -> Result<String, String> {
+    use std::process::Command;
+    
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
+    
+    let output = if cfg!(target_os = "windows") {
+        let mut c = Command::new("cmd");
+        #[cfg(target_os = "windows")]
+        c.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        c.arg("/C").arg(&command).output()
+    } else {
+        Command::new("sh").arg("-c").arg(&command).output()
+    };
+    
+    match output {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let combined = format!("{}{}", stdout, stderr);
+            if combined.is_empty() {
+                Ok("Command executed successfully (no output).".to_string())
+            } else {
+                Ok(combined)
+            }
+        }
+        Err(e) => Err(format!("Failed to execute command: {}", e))
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -111,6 +156,7 @@ pub fn run() {
                 dhcp_enabled: Mutex::new(None),
                 is_server_connected: Mutex::new(false),
                 rustdesk_id: Mutex::new(initial_rustdesk_id),
+                consent_granted_until: Mutex::new(None),
             });
 
             // Spawn the background WebSocket loop
@@ -162,8 +208,10 @@ pub fn run() {
             local_db::get_local_logs,
             get_connection_status,
             get_rustdesk_id,
+            set_rustdesk_password,
             local_db::get_config,
-            local_db::set_config
+            local_db::set_config,
+            run_local_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

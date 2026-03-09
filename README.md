@@ -66,10 +66,10 @@ Use this section to track the implementation of each architectural phase.
 - [x] Implement a command payload that securely self-restarts the Tauri agent process.
 
 ### Phase 4.2: Logging & Audit Compliance
-- [ ] Establish local SQLite logging in the Tauri agent for offline audit trails.
-- [ ] Connect agent logs to the Go central server for centralized compliance tracking.
-- [ ] Build the "Activity History" UI tab in the agent desktop application.
-- [ ] Implement database synchronization for log ingestion when agents reconnect.
+- [x] Establish local SQLite logging in the Tauri agent for offline audit trails.
+- [x] Connect agent logs to the Go central server for centralized compliance tracking.
+- [x] Build the "Activity History" UI tab in the agent desktop application.
+- [x] Implement database synchronization for log ingestion when agents reconnect.
 
 ### Phase 4.3: RustDesk Remote Desktop Integration
 - [x] Add `rustdesk.rs` module to the Tauri agent to discover the local RustDesk peer ID via `rustdesk --get-id` CLI.
@@ -79,7 +79,12 @@ Use this section to track the implementation of each architectural phase.
 - [x] Display the RustDesk peer ID in the agent desktop UI (System Agent tab).
 - [x] Display the RustDesk peer ID in the dashboard Network Config panel per agent.
 - [x] Add a "Connect via RustDesk" deep-link button (`rustdesk://connect/{id}`) to the dashboard Remote Actions panel.
-- [ ] Add RustDesk session initiation audit logging to the Go server and PostgreSQL.
+- [x] Add RustDesk session initiation audit logging to the Go server and PostgreSQL.
+- [x] Implement "ask once" 24-hour blanket consent — after user accepts a command, skip consent dialogs for 24 hours (in-memory, resets on restart).
+- [x] Add RustDesk session consent flow — admin request → agent shows consent dialog → result logged to server → dashboard opens deep-link on accept.
+- [x] **Expanded Admin Commands**: Added new "Network & System Admin" panel in dashboard with 11 additional remote commands (Restart Explorer, WiFi SSID, Task Manager, App Logs, DNS Lookup, Trace Route, IP Release/Renew, Network Stack Reset, TCP/IP Reset, App Search).
+- [x] **Agent Quick Tools**: Added "Quick Tools" section in agent UI enabling end users to run common network commands locally when requested by IT support.
+- [x] **Enhanced Dialog Visibility**: Modified consent dialogs to bring agent window to front and set always-on-top for better user visibility.
 
 ### Phase 5: Network Gear & NVR Integration
 - [ ] Add an SNMP polling engine to the Go Central API.

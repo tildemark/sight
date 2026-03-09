@@ -32,6 +32,7 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: sight-mosquitto
+    command: mosquitto -c /mosquitto/config/mosquitto.conf
     ports:
       - "2883:1883"
       - "9901:9001"

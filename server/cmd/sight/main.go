@@ -101,10 +101,25 @@ func main() {
 	log := logger.NewLogger()
 	log.Info("Starting Project S.I.G.H.T. Central Server...")
 
-	// Initialize Configuration
-	pgURI := "postgres://sight_admin:sight_password@localhost:5445/sight_db?sslmode=disable"
-	redisAddr := "localhost:6385"
-	mqttBroker := "tcp://localhost:1883"
+	// Initialize Configuration from environment variables
+	pgURI := os.Getenv("DATABASE_URL")
+	if pgURI == "" {
+		pgURI = "postgres://sight_admin:sight_password@localhost:5445/sight_db?sslmode=disable"
+	}
+	
+	redisAddr := os.Getenv("REDIS_URL")
+	if redisAddr == "" {
+		redisAddr = "localhost:6385"
+	}
+	// Strip redis:// prefix if present
+	if len(redisAddr) > 8 && redisAddr[:8] == "redis://" {
+		redisAddr = redisAddr[8:]
+	}
+	
+	mqttBroker := os.Getenv("MQTT_BROKER")
+	if mqttBroker == "" {
+		mqttBroker = "tcp://localhost:1883"
+	}
 
 	// 1. Initialize PostgreSQL
 	db, err := database.New(pgURI, log)

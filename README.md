@@ -98,10 +98,12 @@ Use this section to track the implementation of each architectural phase.
 ## 🏁 Getting Started
 
 ### Prerequisites
-* [Rust Toolchain](https://rustup.rs/)
-* [Node.js](https://nodejs.org/) (v18+)
-* [Go](https://go.dev/) (v1.21+)
-* PostgreSQL, Redis, and Mosquitto MQTT Broker
+
+You must have the following tools installed and available in your system's `PATH`:
+* **[Rust Toolchain (cargo)](https://rustup.rs/)** - *Required for the Tauri Desktop Agent.* After installing, ensure you restart your terminal or PC so that `cargo` is in your PATH.
+* **[Node.js](https://nodejs.org/)** (v18+) - *Required for the dashboard and agent UI.*
+* **[Go](https://go.dev/)** (v1.21+) - *Required for the Central Server.*
+* **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** or equivalent - *Required to easily run PostgreSQL, Redis, and Mosquitto locally.*
 
 ### Installation (Development)
 
@@ -109,34 +111,38 @@ Use this section to track the implementation of each architectural phase.
    ```bash
    git clone git@git.sanchez.ph:admin/project-sight.git
    cd project-sight
+   ```
 
-```
+2. **Start Background Services (Database & MQTT):**
+   Before running the Go server, you must start the PostgreSQL database, Redis store, and Mosquitto broker.
+   ```bash
+   docker-compose up -d
+   ```
+   *Note: Ensure Docker is running before executing this command.*
 
-2. **Start the Central Go Server:**
-```bash
-cd server
-go mod tidy
-go run cmd/sight/main.go
+3. **Start the Central Go Server:**
+   Open a new terminal, run:
+   ```bash
+   cd server
+   go mod tidy
+   go run cmd/sight/main.go
+   ```
 
-```
+4. **Launch the Admin Dashboard:**
+   Open a new terminal, run:
+   ```bash
+   cd dashboard
+   npm install
+   npm run dev
+   ```
 
-
-3. **Launch the Admin Dashboard:**
-```bash
-cd dashboard
-npm install
-npm run dev
-
-```
-
-
-4. **Run the Tauri Desktop Agent:**
-```bash
-cd agent-desktop
-npm install
-npm run tauri dev
-
-```
+5. **Run the Tauri Desktop Agent:**
+   Open a new terminal. **Note:** If you just installed Rust, make sure `cargo` is available by running `cargo --version` first.
+   ```bash
+   cd agent-desktop
+   npm install
+   npm run tauri dev
+   ```
 
 
 

@@ -51,7 +51,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
     )?;
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
-        ("fallback_config_url", "https://raw.githubusercontent.com/company/sight-config/main/config.json"),
+        ("fallback_config_url", "http://localhost:3000/config.json"),
     )?;
 
     Ok(())

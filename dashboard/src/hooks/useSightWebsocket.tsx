@@ -41,12 +41,14 @@ export const useSightWebsocket = () => {
     useEffect(() => {
         if (!serverUrl) return; // Wait for config to load
 
+        console.log("[WebSocket] Initializing connection to:", serverUrl);
         let isMounted = true;
         let reconnectTimeout: NodeJS.Timeout;
 
         const connect = () => {
             if (!isMounted) return;
 
+            console.log("[WebSocket] Attempting to connect to:", serverUrl);
             ws.current = new WebSocket(serverUrl);
 
             ws.current.onopen = () => {
@@ -55,7 +57,7 @@ export const useSightWebsocket = () => {
                     return;
                 }
                 setIsConnected(true);
-                console.log("Connected to S.I.G.H.T. Central Server");
+                console.log("[WebSocket] ✓ Connected to S.I.G.H.T. Central Server");
             };
 
             ws.current.onmessage = (event) => {
@@ -110,7 +112,7 @@ export const useSightWebsocket = () => {
             ws.current.onclose = () => {
                 if (!isMounted) return;
                 setIsConnected(false);
-                console.log("Disconnected from Central Server, retrying in 3s...");
+                console.log("[WebSocket] ✗ Disconnected from Central Server, retrying in 3s...");
                 reconnectTimeout = setTimeout(connect, 3000);
             };
 
@@ -120,7 +122,8 @@ export const useSightWebsocket = () => {
                 if (ws.current?.readyState === WebSocket.CLOSING || ws.current?.readyState === WebSocket.CLOSED) {
                     return;
                 }
-                console.error("WebSocket Error:", error);
+                console.error("[WebSocket] Error:", error);
+                console.error("[WebSocket] ReadyState:", ws.current?.readyState);
                 ws.current?.close();
             };
         };

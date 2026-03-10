@@ -24,16 +24,30 @@ export interface TelemetryData {
 export const useSightWebsocket = () => {
     const [agents, setAgents] = useState<Record<string, TelemetryData>>({});
     const [isConnected, setIsConnected] = useState(false);
+    const [serverUrl, setServerUrl] = useState<string | null>(null);
     const ws = useRef<WebSocket>(null);
 
+    // Load config on mount
     useEffect(() => {
+        fetch('/config.json')
+            .then(res => res.json())
+            .then(config => setServerUrl(config.server_url))
+            .catch(err => {
+                console.error('Failed to load config, using fallback', err);
+                setServerUrl("ws://localhost:8080/ws");
+            });
+    }, []);
+
+    useEffect(() => {
+        if (!serverUrl) return; // Wait for config to load
+
         let isMounted = true;
         let reconnectTimeout: NodeJS.Timeout;
 
         const connect = () => {
             if (!isMounted) return;
 
-            ws.current = new WebSocket("ws://localhost:8080/ws");
+            ws.current = new WebSocket(serverUrl);
 
             ws.current.onopen = () => {
                 if (!isMounted) {
@@ -139,7 +153,7 @@ export const useSightWebsocket = () => {
                 ws.current.close();
             }
         };
-    }, []);
+    }, [serverUrl]);
 
     const sendCommand = (target_hostname: string, action: string) => {
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {

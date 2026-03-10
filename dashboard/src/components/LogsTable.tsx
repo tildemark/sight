@@ -15,11 +15,31 @@ export interface AuditLog {
 export function LogsTable() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [apiUrl, setApiUrl] = useState<string | null>(null);
+
+    // Load config on mount
+    useEffect(() => {
+        fetch('/config.json')
+            .then(res => res.json())
+            .then(config => {
+                // Convert ws://host/ws or wss://host/ws to http://host or https://host
+                const wsUrl = config.server_url;
+                const isSecure = wsUrl.startsWith('wss://');
+                const baseUrl = wsUrl.replace(/^wss?:\/\//, isSecure ? 'https://' : 'http://').replace(/\/ws$/, '');
+                setApiUrl(baseUrl);
+            })
+            .catch(err => {
+                console.error('Failed to load config, using fallback', err);
+                setApiUrl("http://localhost:8080");
+            });
+    }, []);
 
     useEffect(() => {
+        if (!apiUrl) return; // Wait for config to load
+
         const fetchLogs = async () => {
             try {
-                const response = await fetch("http://localhost:8080/api/logs");
+                const response = await fetch(`${apiUrl}/api/logs`);
                 if (response.ok) {
                     const data = await response.json();
                     setLogs(data || []);
@@ -35,7 +55,7 @@ export function LogsTable() {
         // Optional: poll every 5s to keep it fresh without websockets 
         const interval = setInterval(fetchLogs, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [apiUrl]);
 
     if (isLoading) {
         return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading Audit Logs...</div>;

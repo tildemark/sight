@@ -69,6 +69,8 @@ services:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
+      args:
+        BUILD_ENV: demo
     container_name: sight-dashboard
     ports:
       - "3100:3000"

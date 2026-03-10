@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build argument for environment (demo or prod)
+ARG BUILD_ENV=demo
+
 # Copy package files
 COPY package.json package-lock.json ./
 
@@ -11,6 +14,9 @@ RUN npm ci
 
 # Copy source code
 COPY . .
+
+# Copy the appropriate config file based on BUILD_ENV
+RUN cp public/config-${BUILD_ENV}.json public/config.json
 
 # Build the application
 RUN npm run build

@@ -1,0 +1,42 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+*.tmp
+tmp/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node / frontend (root, dashboard, agent-desktop)
+node_modules/
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+
+# Rust / Tauri
+agent-desktop/src-tauri/target/
+**/*.rs.bk
+
+# Go
+server/tmp_sight
+
+# Server release artifacts: ignore binaries, keep metadata JSON
+server/releases/*.msi
+server/releases/*.zip
+!server/releases/*.json
+

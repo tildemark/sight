@@ -6,6 +6,7 @@ use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use crate::telemetry::get_telemetry;
 use crate::local_db;
+use std::io::Write;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct WebSocketMessage {
@@ -33,6 +34,16 @@ pub struct SyncLogsMessage {
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
+fn append_ws_log(app_handle: &AppHandle, message: &str) {
+    if let Ok(mut dir) = app_handle.path().app_data_dir() {
+        let _ = std::fs::create_dir_all(&dir);
+        dir.push("ws_debug.log");
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir) {
+            let _ = writeln!(f, "{}", message);
+        }
+    }
+}
+
 pub async fn start_background_loop(app_handle: AppHandle) {
     let mut fail_count = 0;
 
@@ -57,10 +68,12 @@ pub async fn start_background_loop(app_handle: AppHandle) {
         
         println!("[WS-DEBUG] Attempting to connect to: {}", url);
         println!("[WS-DEBUG] Fallback config URL: {}", fallback_url);
+        append_ws_log(&app_handle, &format!("Attempting connect to {}", url));
 
         match connect_async(&url).await {
             Ok((mut ws_stream, _)) => {
                 println!("Connected to {}", url);
+                append_ws_log(&app_handle, &format!("Connected to {}", url));
                 *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = true;
                 fail_count = 0;
 
@@ -440,9 +453,11 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                 
                 read_task.abort(); // cleanup listener on disconnect
                 *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = false;
+                append_ws_log(&app_handle, "Disconnected from websocket");
             }
             Err(e) => {
                 println!("[WS-DEBUG] Connection FAILED: {}", e);
+                append_ws_log(&app_handle, &format!("Connection FAILED: {}", e));
                 println!("[WS-DEBUG] This usually means:");
                 println!("[WS-DEBUG]   1. The server URL is wrong or unreachable");
                 println!("[WS-DEBUG]   2. The server is not running");

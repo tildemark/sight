@@ -66,18 +66,18 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
         (),
     )?;
 
-    // Insert Default Configurations if they don't exist
-    // Use compile-time environment variables as defaults (set by build.rs during compilation)
-    let default_server_url = option_env!("COMPILED_SERVER_URL").unwrap_or("ws://localhost:8080/ws");
-    let default_fallback_url = option_env!("COMPILED_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
+    // Insert default configuration values if they don't exist.
+    // Build scripts can provide compile-time values via SIGHT_* env vars.
+    let default_server_url = option_env!("SIGHT_SERVER_URL").unwrap_or("ws://localhost:8080/ws");
+    let default_fallback_url = option_env!("SIGHT_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
     
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
-        (rusqlite::params!["server_url", default_server_url]),
+        rusqlite::params!["server_url", default_server_url],
     )?;
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
-        (rusqlite::params!["fallback_config_url", default_fallback_url]),
+        rusqlite::params!["fallback_config_url", default_fallback_url],
     )?;
 
     Ok(())

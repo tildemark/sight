@@ -39,9 +39,9 @@ pub async fn start_background_loop(app_handle: AppHandle) {
     loop {
         let config = crate::local_db::get_config(app_handle.clone()).unwrap_or_default();
         
-        // Compile-time defaults (set by build script in SIGHT_SERVER_URL env var)
-        let compiled_server_url = option_env!("COMPILED_SERVER_URL").unwrap_or("ws://localhost:8080/ws");
-        let compiled_fallback_url = option_env!("COMPILED_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
+        // Compile-time defaults set by build environment (e.g. demo/prod build scripts)
+        let compiled_server_url = option_env!("SIGHT_SERVER_URL").unwrap_or("ws://localhost:8080/ws");
+        let compiled_fallback_url = option_env!("SIGHT_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
         
         // Diagnostic logging: show where we're trying to connect
         println!("[WS-DEBUG] Compiled SIGHT_SERVER_URL: {}", compiled_server_url);

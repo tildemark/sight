@@ -32,15 +32,31 @@ pub struct SyncLogsMessage {
 
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use tauri_plugin_updater::UpdaterExt;
 
 pub async fn start_background_loop(app_handle: AppHandle) {
     let mut fail_count = 0;
 
     loop {
         let config = crate::local_db::get_config(app_handle.clone()).unwrap_or_default();
-        let url = config.get("server_url").cloned().unwrap_or_else(|| std::env::var("SIGHT_SERVER_URL").unwrap_or_else(|_| "ws://localhost:8080/ws".to_string()));
-        let fallback_url = config.get("fallback_config_url").cloned().unwrap_or_else(|| std::env::var("SIGHT_FALLBACK_URL").unwrap_or_else(|_| "http://localhost:3000/config.json".to_string()));
+        
+        // Compile-time defaults (set by build script in SIGHT_SERVER_URL env var)
+        let compiled_server_url = option_env!("COMPILED_SERVER_URL").unwrap_or("ws://localhost:8080/ws");
+        let compiled_fallback_url = option_env!("COMPILED_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
+        
+        // Diagnostic logging: show where we're trying to connect
+        println!("[WS-DEBUG] Compiled SIGHT_SERVER_URL: {}", compiled_server_url);
+        println!("[WS-DEBUG] Compiled SIGHT_FALLBACK_URL: {}", compiled_fallback_url);
+        
+        // Server URL priority: config DB > compiled default
+        let url = config.get("server_url").cloned()
+            .unwrap_or_else(|| compiled_server_url.to_string());
+        
+        // Fallback URL priority: config DB > compiled default
+        let fallback_url = config.get("fallback_config_url").cloned()
+            .unwrap_or_else(|| compiled_fallback_url.to_string());
+        
+        println!("[WS-DEBUG] Attempting to connect to: {}", url);
+        println!("[WS-DEBUG] Fallback config URL: {}", fallback_url);
 
         match connect_async(&url).await {
             Ok((mut ws_stream, _)) => {
@@ -112,7 +128,7 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             "shutdown /r /t 0" => "Restart your computer".to_string(),
                                                             "net stop spooler && net start spooler" => "Restart the Print Spooler service".to_string(),
                                                             "RESTART_AGENT" => "Restart the background support agent".to_string(),
-                                                            "UPDATE_AGENT" => "Download and install the latest S.I.G.H.T Agent update".to_string(),
+                                                            "UPDATE_AGENT" => "Auto-update is disabled for this build".to_string(),
                                                             _ => action.clone(),
                                                         };
                                                         
@@ -197,14 +213,15 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                         println!("User accepted. Executing Remote Command: {}", action);
                                                         
                                                         if action == "UPDATE_AGENT" {
-                                                            let update_log_id = local_db::insert_log_returning_id(&app_handle, action, "Accepted", "Update initiated. The agent will disconnect briefly while installing...").ok();
+                                                            let disabled_msg = "Auto-update is disabled in this build. Please deploy a new installer package manually.";
+                                                            let update_log_id = local_db::insert_log_returning_id(&app_handle, action, "Rejected", disabled_msg).ok();
                                                             let reply = WebSocketMessage {
                                                                 msg_type: "COMMAND_RESULT".to_string(),
                                                                 target_hostname: Some(sys_hostname.clone()),
                                                                 action: Some(action.to_string()),
                                                                 payload: Some(serde_json::to_value(CommandResultPayload {
-                                                                    success: true,
-                                                                    output: "Update initiated. The agent will disconnect briefly while installing...".to_string(),
+                                                                    success: false,
+                                                                    output: disabled_msg.to_string(),
                                                                 }).unwrap()),
                                                             };
                                                             if let Ok(json) = serde_json::to_string(&reply) {
@@ -214,23 +231,6 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                     }
                                                                 }
                                                             }
-
-                                                            let app_handle_clone = app_handle.clone();
-                                                            tauri::async_runtime::spawn(async move {
-                                                                if let Ok(updater) = app_handle_clone.updater() {
-                                                                    if let Ok(Some(update)) = updater.check().await {
-                                                                        println!("Update found: {}. Downloading...", update.version);
-                                                                        if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
-                                                                            println!("Failed to download and install update: {}", e);
-                                                                        } else {
-                                                                            println!("Update installed successfully. Restarting...");
-                                                                            app_handle_clone.restart();
-                                                                        }
-                                                                    } else {
-                                                                        println!("No update available or error checking.");
-                                                                    }
-                                                                }
-                                                            });
 
                                                         } else if action == "RESTART_AGENT" {
                                                             // RESTART_AGENT doesn't send a COMMAND_RESULT reply, so mark synced immediately
@@ -442,7 +442,12 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                 *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = false;
             }
             Err(e) => {
-                println!("Failed to connect: {}. Retrying in 5 seconds...", e);
+                println!("[WS-DEBUG] Connection FAILED: {}", e);
+                println!("[WS-DEBUG] This usually means:");
+                println!("[WS-DEBUG]   1. The server URL is wrong or unreachable");
+                println!("[WS-DEBUG]   2. The server is not running");
+                println!("[WS-DEBUG]   3. There's a network/firewall issue");
+                println!("[WS-DEBUG]   4. Using HTTPS (wss://) but server only supports HTTP (ws://)");
                 *app_handle.state::<crate::AppState>().is_server_connected.lock().unwrap() = false;
                 
                 fail_count += 1;

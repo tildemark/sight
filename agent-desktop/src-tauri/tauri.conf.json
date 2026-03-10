@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "agent-desktop",
+  "productName": "sight-agent",
   "version": "1.1.0",
-  "identifier": "com.tilde.agent-desktop",
+  "identifier": "com.asanchez.sight-agent",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -19,14 +19,6 @@
     ],
     "security": {
       "csp": null
-    }
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://localhost:8080/api/updater/{{target}}/{{current_version}}"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY1QkY5MTY4Qzc1MURCMEQKUldRTjIxSEhhSkcvWlZLSGNoSDZzZW5acXZKa280Qlp1QmtlbzZQcTN2QWJYWWpTR3RsVzFUS00K"
     }
   },
   "bundle": {

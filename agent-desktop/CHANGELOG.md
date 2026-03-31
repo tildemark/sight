@@ -5,6 +5,24 @@ All notable changes to the `agent-desktop` component will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-31
+
+### Added
+- **Secure Ticket API Proxy**: Added backend Avega API commands (`avega_login`, `avega_get_companies`, `avega_get_departments`, `avega_get_employees`, `avega_submit_ticket`) so API key usage and external calls run in the Tauri Rust layer instead of the frontend.
+- **Authenticated Ticket Workflow**: Added login-first ticket submission flow in the agent UI with bearer-token session handling.
+- **Employee Dropdown Support**: Added employee option loading and selection for ticket requestor values, alongside company and department selectors.
+- **ABAS ERP Live Status Monitor**: Added runtime ERP health probing with online/offline status indicator in the dashboard.
+- **Configurable ABAS URL**: Added editable `ABAS ERP Health URL` setting persisted in local config (`abas_url`) and used by the status probe.
+
+### Changed
+- **Dashboard Status UX**: Replaced text-heavy connection badges with compact hoverable status icons for Central server and ABAS ERP.
+- **Header Layout**: Moved the AV brand logo to the left side of the header.
+- **Version Bump**: Updated app version metadata to `1.2.0` in package and Tauri/Rust manifests.
+
+### Fixed
+- **Ticket Submit Command Args**: Corrected invoke argument keys to camelCase (`departmentId`, `companyId`, `requestorId`) to match Tauri command expectations.
+- **Build Warnings**: Removed recent Rust warnings related to deprecated tray API usage and unused variables in command and RustDesk flows.
+
 ## [1.1.0] - 2026-03-09
 
 ### Added

@@ -2,6 +2,7 @@ pub mod telemetry;
 pub mod ws_client;
 pub mod local_db;
 pub mod rustdesk;
+pub mod avega_api;
 
 use std::sync::Mutex;
 use sysinfo::System;
@@ -101,6 +102,30 @@ fn get_version_info() -> serde_json::Value {
     })
 }
 
+#[tauri::command]
+async fn get_abas_status(app_handle: tauri::AppHandle) -> bool {
+    let abas_url = local_db::get_config(app_handle)
+        .ok()
+        .and_then(|cfg| cfg.get("abas_url").cloned())
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "https://abas.avegabros.org/".to_string());
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(6))
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+    {
+        Ok(client) => client,
+        Err(_) => return false,
+    };
+
+    match client.get(&abas_url).send().await {
+        Ok(response) => response.status().as_u16() < 500,
+        Err(_) => false,
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -123,7 +148,7 @@ pub fn run() {
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
-                .menu_on_left_click(false)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
                         app.exit(0);
@@ -225,7 +250,13 @@ pub fn run() {
             local_db::get_config,
             local_db::set_config,
             run_local_command,
-            get_version_info
+            get_version_info,
+            get_abas_status,
+            avega_api::avega_login,
+            avega_api::avega_get_companies,
+            avega_api::avega_get_departments,
+            avega_api::avega_get_employees,
+            avega_api::avega_submit_ticket
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

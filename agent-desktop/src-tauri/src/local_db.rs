@@ -70,6 +70,7 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
     // Build scripts can provide compile-time values via SIGHT_* env vars.
     let default_server_url = option_env!("SIGHT_SERVER_URL").unwrap_or("ws://localhost:8080/ws");
     let default_fallback_url = option_env!("SIGHT_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
+    let default_abas_url = option_env!("SIGHT_ABAS_URL").unwrap_or("https://abas.avegabros.org/");
     
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
@@ -78,6 +79,10 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
         rusqlite::params!["fallback_config_url", default_fallback_url],
+    )?;
+    conn.execute(
+        "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
+        rusqlite::params!["abas_url", default_abas_url],
     )?;
 
     Ok(())

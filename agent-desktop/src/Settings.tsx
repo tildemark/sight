@@ -5,6 +5,7 @@ import { Save, Monitor, Eye, EyeOff, KeyRound, Info } from "lucide-react";
 export function Settings() {
   const [serverUrl, setServerUrl] = useState("");
   const [fallbackUrl, setFallbackUrl] = useState("");
+  const [abasUrl, setAbasUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [rustdeskPassword, setRustdeskPassword] = useState("");
   const [rustdeskPasswordVisible, setRustdeskPasswordVisible] = useState(false);
@@ -25,6 +26,7 @@ export function Settings() {
         const config: Record<string, string> = await invoke("get_config");
         setServerUrl(config["server_url"] || "");
         setFallbackUrl(config["fallback_config_url"] || "");
+        setAbasUrl(config["abas_url"] || "https://abas.avegabros.org/");
       } catch (e) {
         console.error("Failed to load config:", e);
       }
@@ -61,6 +63,7 @@ export function Settings() {
     try {
       await invoke("set_config", { key: "server_url", value: serverUrl });
       await invoke("set_config", { key: "fallback_config_url", value: fallbackUrl });
+      await invoke("set_config", { key: "abas_url", value: abasUrl });
       alert("Settings saved securely. The agent will use these on the next connection attempt.");
     } catch (e) {
       console.error("Failed to save config:", e);
@@ -100,6 +103,20 @@ export function Settings() {
             onChange={(e) => setFallbackUrl(e.target.value)}
             placeholder="https://raw.githubusercontent.com/.../config.json"
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">ABAS ERP Health URL</label>
+          <input
+            type="text"
+            className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={abasUrl}
+            onChange={(e) => setAbasUrl(e.target.value)}
+            placeholder="https://abas.avegabros.org/"
+          />
+          <p className="text-xs text-muted-foreground">
+            Used by the dashboard status probe to show whether ABAS ERP is online or offline.
+          </p>
         </div>
 
         <button

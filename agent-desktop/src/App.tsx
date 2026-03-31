@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor, ChevronDown, ChevronRight, Ticket, Wifi, RefreshCw, RotateCcw, Network, Terminal } from "lucide-react";
+import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor, ChevronDown, ChevronRight, Ticket, Wifi, RefreshCw, RotateCcw, Network, Terminal, Server, Building2 } from "lucide-react";
 import { AuditLogs } from "./AuditLogs";
 import { Settings } from "./Settings";
+
+interface Company {
+  id: number;
+  name: string;
+}
+
+interface Department {
+  id: number;
+  name: string;
+}
+
+interface Employee {
+  id: number;
+  name: string;
+  company_id?: number | null;
+  department_id?: number | null;
+}
 
 interface Telemetry {
   hostname: string;
@@ -22,13 +39,174 @@ interface Telemetry {
 
 function App() {
   const [ticketDescription, setTicketDescription] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | "">("");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | "">("");
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | "">("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [ticketStatus, setTicketStatus] = useState<string | null>(null);
+  const [ticketError, setTicketError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoadingTicketOptions, setIsLoadingTicketOptions] = useState(false);
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
   const [stats, setStats] = useState<Telemetry | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isAbasOnline, setIsAbasOnline] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "logs" | "settings">("dashboard");
   const [supportFormExpanded, setSupportFormExpanded] = useState(false);
   const [quickToolsExpanded, setQuickToolsExpanded] = useState(false);
   const [runningCommand, setRunningCommand] = useState<string | null>(null);
   const [commandOutput, setCommandOutput] = useState<string | null>(null);
+
+  const logoutTicketSession = (statusMessage?: string) => {
+    setAuthToken(null);
+    setCompanies([]);
+    setDepartments([]);
+    setEmployees([]);
+    setSelectedCompanyId("");
+    setSelectedDepartmentId("");
+    setSelectedEmployeeId("");
+    setTicketDescription("");
+    setPassword("");
+    setTicketError(null);
+    setTicketStatus(statusMessage ?? "Logged out of ticket session.");
+  };
+
+  const handleCommandError = (error: unknown, fallbackMessage: string): string => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("HTTP_401")) {
+      logoutTicketSession("Session expired. Please authenticate again.");
+      return "Session expired. Please authenticate again.";
+    }
+    return message || fallbackMessage;
+  };
+
+  const filteredEmployees = useMemo(
+    () =>
+      employees.filter((employee) => {
+        const companyMatches =
+          selectedCompanyId === "" ||
+          employee.company_id == null ||
+          employee.company_id === selectedCompanyId;
+        const departmentMatches =
+          selectedDepartmentId === "" ||
+          employee.department_id == null ||
+          employee.department_id === selectedDepartmentId;
+        return companyMatches && departmentMatches;
+      }),
+    [employees, selectedCompanyId, selectedDepartmentId]
+  );
+
+  const loadTicketOptions = async (token: string) => {
+    setIsLoadingTicketOptions(true);
+    setTicketError(null);
+
+    try {
+      const [companyOptions, departmentOptions, employeeOptions] = await Promise.all([
+        invoke<Company[]>("avega_get_companies", { token }),
+        invoke<Department[]>("avega_get_departments", { token }),
+        invoke<Employee[]>("avega_get_employees", { token }),
+      ]);
+
+      setCompanies(companyOptions);
+      setDepartments(departmentOptions);
+      setEmployees(employeeOptions);
+    } catch (error) {
+      console.error("Failed to load ticket options:", error);
+      setTicketError(handleCommandError(error, "Authenticated, but failed to load ticket options."));
+    } finally {
+      setIsLoadingTicketOptions(false);
+    }
+  };
+
+  const handleTicketLogin = async () => {
+    if (!username.trim() || !password) {
+      setTicketError("Username and password are required.");
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setTicketError(null);
+    setTicketStatus(null);
+
+    try {
+      const token = await invoke<string>("avega_login", {
+        username: username.trim(),
+        password,
+      });
+
+      setAuthToken(token);
+      setTicketStatus("Authentication successful. You can now submit a ticket.");
+      await loadTicketOptions(token);
+    } catch (error) {
+      const errorMessage = handleCommandError(error, "Authentication failed.");
+      setTicketError(errorMessage);
+      setAuthToken(null);
+      setCompanies([]);
+      setDepartments([]);
+      setEmployees([]);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleSubmitTicket = async () => {
+    if (!authToken) {
+      setTicketError("Please authenticate before sending a ticket.");
+      return;
+    }
+    if (selectedEmployeeId === "") {
+      setTicketError("Employee name is required.");
+      return;
+    }
+    if (selectedCompanyId === "") {
+      setTicketError("Company is required.");
+      return;
+    }
+    if (selectedDepartmentId === "") {
+      setTicketError("Department is required.");
+      return;
+    }
+    if (!ticketDescription.trim()) {
+      setTicketError("Please describe the issue.");
+      return;
+    }
+
+    setIsSubmittingTicket(true);
+    setTicketError(null);
+    setTicketStatus(null);
+
+    try {
+      const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
+      if (!selectedEmployee) {
+        throw new Error("Selected employee was not found.");
+      }
+
+      await invoke("avega_submit_ticket", {
+        token: authToken,
+        departmentId: selectedDepartmentId,
+        companyId: selectedCompanyId,
+        requestorId: selectedEmployee.id,
+        requestor: selectedEmployee.name,
+        request: ticketDescription.trim(),
+      });
+
+      setTicketStatus("Ticket submitted successfully.");
+      setSelectedEmployeeId("");
+      setSelectedCompanyId("");
+      setSelectedDepartmentId("");
+      setTicketDescription("");
+    } catch (error) {
+      const errorMessage = handleCommandError(error, "Failed to submit ticket.");
+      setTicketError(errorMessage);
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -52,6 +230,42 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAbasStatus = async () => {
+      try {
+        const online = await invoke<boolean>("get_abas_status");
+        if (mounted) {
+          setIsAbasOnline(online);
+        }
+      } catch {
+        if (mounted) {
+          setIsAbasOnline(false);
+        }
+      }
+    };
+
+    checkAbasStatus();
+    const interval = setInterval(checkAbasStatus, 30000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedEmployeeId === "") {
+      return;
+    }
+
+    const stillValid = filteredEmployees.some((employee) => employee.id === selectedEmployeeId);
+    if (!stillValid) {
+      setSelectedEmployeeId("");
+    }
+  }, [selectedEmployeeId, filteredEmployees]);
+
   // Run a local command (for quick tools)
   const runLocalCommand = async (command: string, label: string) => {
     setRunningCommand(label);
@@ -70,7 +284,7 @@ function App() {
 
       {/* Header */}
       <div className="relative w-full max-w-lg mb-2">
-        <div className="absolute top-0 right-2">
+        <div className="absolute top-0 left-2">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" className="h-7 w-auto shadow-sm rounded-md overflow-hidden opacity-90 transition-opacity hover:opacity-100">
             <rect width="120" height="80" fill="#e60000" />
             <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fill="#ffffff" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="56" letterSpacing="-2">AV</text>
@@ -139,16 +353,45 @@ function App() {
             </div>
           </div>
 
-          {/* Connection Status */}
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full border border-border ${isConnected ? 'bg-secondary/50' : 'bg-red-500/10'}`}>
-            <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className={`text-sm font-medium flex items-center gap-2 ${isConnected ? 'text-secondary-foreground' : 'text-red-500'}`}>
-              {isConnected ? (
-                <>Connected to Central <Activity className="h-4 w-4 text-green-500" /></>
-              ) : (
-                <>Server Disconnected / Offline <Activity className="h-4 w-4 text-red-500" /></>
-              )}
-            </span>
+          {/* Status Icons */}
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              title={isConnected ? "Connected to Central" : "Central server offline or disconnected"}
+              className={`h-10 w-10 rounded-full border flex items-center justify-center transition-colors ${
+                isConnected ? "bg-green-500/10 border-green-500/30 text-green-600" : "bg-red-500/10 border-red-500/30 text-red-500"
+              }`}
+              aria-label={isConnected ? "Connected to Central" : "Central server offline or disconnected"}
+            >
+              <Server className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              title={
+                isAbasOnline === null
+                  ? "Checking ABAS ERP status"
+                  : isAbasOnline
+                    ? "ABAS ERP is online"
+                    : "ABAS ERP is offline"
+              }
+              className={`h-10 w-10 rounded-full border flex items-center justify-center transition-colors ${
+                isAbasOnline === null
+                  ? "bg-muted/40 border-border text-muted-foreground"
+                  : isAbasOnline
+                    ? "bg-green-500/10 border-green-500/30 text-green-600"
+                    : "bg-red-500/10 border-red-500/30 text-red-500"
+              }`}
+              aria-label={
+                isAbasOnline === null
+                  ? "Checking ABAS ERP status"
+                  : isAbasOnline
+                    ? "ABAS ERP is online"
+                    : "ABAS ERP is offline"
+              }
+            >
+              <Building2 className="h-5 w-5" />
+            </button>
           </div>
 
           {/* RustDesk Remote Access ID */}
@@ -276,21 +519,119 @@ function App() {
             
             {supportFormExpanded && (
               <div className="px-5 pb-5 space-y-3 animate-in slide-in-from-top-2 duration-200">
-                <textarea
-                  placeholder="Describe your issue..."
-                  className="w-full min-h-[80px] bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={ticketDescription}
-                  onChange={(e) => setTicketDescription(e.target.value)}
-                />
-                <button
-                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 font-medium text-sm transition-colors"
-                  onClick={() => {
-                    alert("Ticket submitted securely!");
-                    setTicketDescription("");
-                  }}
-                >
-                  Submit Ticket
-                </button>
+                {!authToken ? (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Authenticate first to receive an access token before sending a ticket.
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="API Username"
+                      className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                    <input
+                      type="password"
+                      placeholder="API Password"
+                      className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <button
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 font-medium text-sm transition-colors disabled:opacity-60"
+                      onClick={handleTicketLogin}
+                      disabled={isLoggingIn}
+                    >
+                      {isLoggingIn ? "Authenticating..." : "Authenticate"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs text-green-600 bg-green-500/10 border border-green-500/20 rounded-md px-3 py-2 flex items-center justify-between gap-3">
+                      <span>Authenticated. Your bearer token is active for this session.</span>
+                      <button
+                        className="text-[11px] font-semibold text-green-700 hover:underline"
+                        onClick={() => logoutTicketSession()}
+                        type="button"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                    <select
+                      className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedCompanyId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedCompanyId(value ? Number(value) : "");
+                      }}
+                      disabled={isLoadingTicketOptions}
+                    >
+                      <option value="">Select Company</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedDepartmentId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedDepartmentId(value ? Number(value) : "");
+                      }}
+                      disabled={isLoadingTicketOptions}
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedEmployeeId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedEmployeeId(value ? Number(value) : "");
+                      }}
+                      disabled={isLoadingTicketOptions}
+                    >
+                      <option value="">Select Employee Name</option>
+                      {filteredEmployees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </option>
+                      ))}
+                    </select>
+                    <textarea
+                      placeholder="Describe your issue..."
+                      className="w-full min-h-[80px] bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={ticketDescription}
+                      onChange={(e) => setTicketDescription(e.target.value)}
+                    />
+                    <button
+                      className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 font-medium text-sm transition-colors disabled:opacity-60"
+                      onClick={handleSubmitTicket}
+                      disabled={isSubmittingTicket || isLoadingTicketOptions}
+                    >
+                      {isSubmittingTicket ? "Submitting..." : "Submit Ticket"}
+                    </button>
+                  </>
+                )}
+
+                {ticketStatus && (
+                  <div className="text-xs text-green-600 bg-green-500/10 border border-green-500/20 rounded-md px-3 py-2">
+                    {ticketStatus}
+                  </div>
+                )}
+                {ticketError && (
+                  <div className="text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+                    {ticketError}
+                  </div>
+                )}
               </div>
             )}
           </div>

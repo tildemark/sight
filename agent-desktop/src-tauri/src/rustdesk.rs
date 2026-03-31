@@ -183,7 +183,6 @@ pub fn set_unattended_password(password: &str) -> Result<bool, String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
         println!("[RustDesk] --set-password failed: {}", stderr);
         return Err(format!("Failed to set password: {}", stderr.trim()));
     }

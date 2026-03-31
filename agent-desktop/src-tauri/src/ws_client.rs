@@ -152,14 +152,11 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             consent
                                                         };
                                                         let consent_was_already_active = consent_expires_at.map(|instant| instant > std::time::Instant::now()).unwrap_or(false);
-                                                        
-                                                        let mut consent_given = false;
-                                                        let dialog_was_shown = !consent_was_already_active;
-                                                        
-                                                        if consent_was_already_active {
+
+                                                        let consent_given = if consent_was_already_active {
                                                             // Blanket consent active — skip dialog
                                                             println!("Blanket consent active — skipping dialog for: {}", action);
-                                                            consent_given = true;
+                                                            true
                                                         } else {
                                                             // Show consent dialog
                                                             let prompt_msg = format!("IT Administrator is requesting to: {}\n\nDo you accept?", friendly_action);
@@ -181,12 +178,12 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                 .show(move |result| {
                                                                     let _ = tx_consent.send(result);
                                                                 });
-                                                            
-                                                            consent_given = match rx_consent.await {
+
+                                                            let consent_given = match rx_consent.await {
                                                                 Ok(accepted) => accepted,
                                                                 Err(_) => false,
                                                             };
-                                                            
+
                                                             // If user accepted and dialog was shown, grant blanket consent
                                                             if consent_given {
                                                                 let state = app_handle.state::<crate::AppState>();
@@ -199,7 +196,8 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                                     .kind(MessageDialogKind::Info)
                                                                     .show(|_| {});
                                                             }
-                                                        }
+                                                            consent_given
+                                                        };
 
                                                         if !consent_given {
                                                             println!("User denied command execution: {}", action);

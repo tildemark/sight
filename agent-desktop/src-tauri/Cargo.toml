@@ -1,6 +1,6 @@
 [package]
 name = "sight-agent"
-version = "1.1.0"
+version = "1.2.0"
 description = "Remote Access Management Software"
 authors = ["asanchez"]
 edition = "2021"

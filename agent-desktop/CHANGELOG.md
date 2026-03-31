@@ -5,6 +5,22 @@ All notable changes to the `agent-desktop` component will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-31
+
+### Added
+- **Native Agent Speed Test Action**: Added `SIGHT_SPEEDTEST` handling directly in Rust (`ws_client.rs`) with CLI-first execution and built-in HTTP fallback for download/upload metrics.
+- **Release Build Aliases**: Added `build:local`, `build:demo`, and `build:prod` npm aliases for easier packaging workflows.
+
+### Changed
+- **Agent Header Rebrand**: Reworked the desktop hero/header to use official S.I.G.H.T and Avega logos with compact sizing and improved information hierarchy.
+- **Runtime Icon Assignment**: Explicitly set tray and main window/taskbar icons at runtime from generated icon assets to avoid fallback/default Tauri icon behavior.
+- **Version Bump**: Updated app version metadata to `1.3.0` in package, Cargo, and Tauri manifests.
+
+### Fixed
+- **Speed Test Command Type Mismatch**: Fixed `SIGHT_SPEEDTEST` consent-flow branch typing issue that caused Rust compile failure.
+- **Windows Signing/ICO Parsing**: Regenerated icon assets using `tauri icon` and corrected sign-command path execution issues affecting bundling.
+- **Dashboard Favicon Decode Errors**: Replaced malformed ICO output with valid generated icon to resolve `failed to fill whole buffer` errors.
+
 ## [1.2.0] - 2026-03-31
 
 ### Added

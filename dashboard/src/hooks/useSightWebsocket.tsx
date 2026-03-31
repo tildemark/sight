@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
+import { resolveRuntimeEndpoints } from "@/lib/runtimeConfig";
 
 export interface TelemetryData {
     hostname: string;
@@ -21,19 +22,27 @@ export interface TelemetryData {
     last_seen: Date;
 }
 
+export interface CommandResultState {
+    hostname: string;
+    action: string;
+    success: boolean;
+    output: string;
+    receivedAt: Date;
+}
+
 export const useSightWebsocket = () => {
     const [agents, setAgents] = useState<Record<string, TelemetryData>>({});
+    const [commandResults, setCommandResults] = useState<Record<string, CommandResultState>>({});
     const [isConnected, setIsConnected] = useState(false);
     const [serverUrl, setServerUrl] = useState<string | null>(null);
     const ws = useRef<WebSocket>(null);
 
-    // Load config on mount
+    // Resolve endpoint on mount using env overrides, automatic localhost, then config.json.
     useEffect(() => {
-        fetch('/config.json')
-            .then(res => res.json())
-            .then(config => setServerUrl(config.server_url))
-            .catch(err => {
-                console.error('Failed to load config, using fallback', err);
+        resolveRuntimeEndpoints()
+            .then(({ wsUrl }) => setServerUrl(wsUrl))
+            .catch((err) => {
+                console.error("Failed to resolve runtime endpoint, using fallback", err);
                 setServerUrl("ws://localhost:8080/ws");
             });
     }, []);
@@ -77,6 +86,18 @@ export const useSightWebsocket = () => {
                     } else if (msg.type === "COMMAND_RESULT" && msg.payload && msg.target_hostname) {
                         const { success, output } = msg.payload;
                         const shortAction = msg.action ? msg.action.split(' ')[0] : 'Action';
+
+                        setCommandResults((prev) => ({
+                            ...prev,
+                            [msg.target_hostname]: {
+                                hostname: msg.target_hostname,
+                                action: msg.action || "Unknown Action",
+                                success: Boolean(success),
+                                output: typeof output === "string" ? output : JSON.stringify(output, null, 2),
+                                receivedAt: new Date(),
+                            },
+                        }));
+
                         if (success) {
                             toast.success(`[${msg.target_hostname}] ${shortAction} succeeded`, {
                                 description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4 whitespace-pre-wrap text-xs text-white max-h-[200px] overflow-y-auto"> {output} </pre>,
@@ -181,5 +202,13 @@ export const useSightWebsocket = () => {
         }
     };
 
-    return { agents, isConnected, sendCommand, requestRustdeskSession };
+    const clearCommandResult = (hostname: string): void => {
+        setCommandResults((prev) => {
+            const next = { ...prev };
+            delete next[hostname];
+            return next;
+        });
+    };
+
+    return { agents, commandResults, isConnected, sendCommand, requestRustdeskSession, clearCommandResult };
 };

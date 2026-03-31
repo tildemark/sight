@@ -137,6 +137,22 @@ You must have the following tools installed and available in your system's `PATH
    ```
    *Note: Ensure Docker is running before executing this command.*
 
+   This starts three services defined in `docker-compose.yml`:
+   | Service | Host Port | Purpose |
+   | :--- | :--- | :--- |
+   | PostgreSQL | `5432` | Relational audit log storage |
+   | Redis | `6379` | Real-time agent state cache |
+   | Mosquitto | `1883` (MQTT), `9001` (WebSocket) | IoT / edge device messaging |
+
+   **Running Mosquitto standalone (without Docker):**
+   If you prefer to run Mosquitto natively, [download Mosquitto](https://mosquitto.org/download/) and point it at the bundled config:
+   ```bash
+   mosquitto -c mosquitto/mosquitto.conf
+   ```
+   The broker will listen on:
+   - `1883` — standard MQTT (TCP)
+   - `9001` — MQTT over WebSockets
+
 3. **Start the Central Go Server:**
    Open a new terminal, run:
    ```bash
@@ -150,15 +166,40 @@ You must have the following tools installed and available in your system's `PATH
    ```bash
    cd dashboard
    npm install
-   npm run dev
+   npm run local
    ```
+   Environment shortcuts:
+   ```bash
+   npm run local   # localhost (ws://localhost:8080/ws)
+   npm run demo    # wss://sight.sanchez.ph/ws
+   npm run prod    # wss://sight.avegabros.org/ws
+   ```
+   Build targets:
+   ```bash
+   npm run build:local
+   npm run build:demo
+   npm run build:prod
+   ```
+   Note: In local development, open http://localhost:3000. The /dashboard base path is applied in non-development builds.
 
 5. **Run the Tauri Desktop Agent:**
    Open a new terminal. **Note:** If you just installed Rust, make sure `cargo` is available by running `cargo --version` first.
    ```bash
    cd agent-desktop
    npm install
-   npm run tauri dev
+   npm run local
+   ```
+   Environment shortcuts:
+   ```bash
+   npm run local   # ws://localhost:8080/ws
+   npm run demo    # wss://sight.sanchez.ph/ws
+   npm run prod    # wss://sight.avegabros.org/ws
+   ```
+   Build targets:
+   ```bash
+   npm run build:local
+   npm run build:demo
+   npm run build:prod
    ```
 
 

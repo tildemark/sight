@@ -23,6 +23,15 @@ pub struct AvegaEmployee {
     pub department_id: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct AvegaLoginResult {
+    pub token: String,
+    pub employee_id: Option<i64>,
+    pub employee_name: Option<String>,
+    pub company_id: Option<i64>,
+    pub department_id: Option<i64>,
+}
+
 fn collect_rows(payload: &Value) -> Vec<&Value> {
     if let Some(rows) = payload.as_array() {
         return rows.iter().collect();
@@ -125,8 +134,28 @@ fn extract_error_message(payload: &Value) -> Option<String> {
     None
 }
 
-fn extract_token(payload: &Value) -> Option<String> {
-    if let Some(token) = read_string(
+fn extract_employee_from_payload(payload: &Value) -> (Option<i64>, Option<String>, Option<i64>, Option<i64>) {
+    let mut search_targets = vec![payload];
+    if let Some(obj) = payload.as_object() {
+        for key in ["data", "result", "user", "employee"] {
+            if let Some(nested) = obj.get(key) {
+                search_targets.push(nested);
+            }
+        }
+    }
+    for target in search_targets {
+        let id = read_i64(target, &["id", "employee_id", "requestor_id"]);
+        let name = read_string(target, &["name", "employee", "employee_name", "full_name", "fullname", "requestor"]);
+        if id.is_some() || name.is_some() {
+            let company_id = read_i64(target, &["company_id"]);
+            let department_id = read_i64(target, &["department_id"]);
+            return (id, name, company_id, department_id);
+        }
+    }
+    (None, None, None, None)
+}
+
+fn extract_token(payload: &Value) -> Option<String> {    if let Some(token) = read_string(
         payload,
         &[
             "token",
@@ -189,7 +218,7 @@ fn authenticated_client(token: &str) -> Result<Client, String> {
 }
 
 #[tauri::command]
-pub async fn avega_login(username: String, password: String) -> Result<String, String> {
+pub async fn avega_login(username: String, password: String) -> Result<AvegaLoginResult, String> {
     if username.trim().is_empty() || password.is_empty() {
         return Err("Username and password are required.".to_string());
     }
@@ -211,7 +240,17 @@ pub async fn avega_login(username: String, password: String) -> Result<String, S
         .map_err(|e| format!("Authentication request failed: {e}"))?;
 
     let payload = parse_response(response).await?;
-    extract_token(&payload).ok_or_else(|| "Login succeeded but no token was returned.".to_string())
+    let token = extract_token(&payload)
+        .ok_or_else(|| "Login succeeded but no token was returned.".to_string())?;
+    let (employee_id, employee_name, company_id, department_id) = extract_employee_from_payload(&payload);
+
+    Ok(AvegaLoginResult {
+        token,
+        employee_id,
+        employee_name,
+        company_id,
+        department_id,
+    })
 }
 
 #[tauri::command]

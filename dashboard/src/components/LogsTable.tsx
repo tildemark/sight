@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ShieldAlert, TerminalSquare, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { resolveRuntimeEndpoints } from "@/lib/runtimeConfig";
 
 export interface AuditLog {
     id: string;
@@ -17,19 +18,12 @@ export function LogsTable() {
     const [isLoading, setIsLoading] = useState(true);
     const [apiUrl, setApiUrl] = useState<string | null>(null);
 
-    // Load config on mount
+    // Resolve endpoint on mount using env overrides, automatic localhost, then config.json.
     useEffect(() => {
-        fetch('/config.json')
-            .then(res => res.json())
-            .then(config => {
-                // Convert ws://host/ws or wss://host/ws to http://host or https://host
-                const wsUrl = config.server_url;
-                const isSecure = wsUrl.startsWith('wss://');
-                const baseUrl = wsUrl.replace(/^wss?:\/\//, isSecure ? 'https://' : 'http://').replace(/\/ws$/, '');
-                setApiUrl(baseUrl);
-            })
-            .catch(err => {
-                console.error('Failed to load config, using fallback', err);
+        resolveRuntimeEndpoints()
+            .then(({ apiUrl: resolvedApiUrl }) => setApiUrl(resolvedApiUrl))
+            .catch((err) => {
+                console.error("Failed to resolve runtime endpoint, using fallback", err);
                 setApiUrl("http://localhost:8080");
             });
     }, []);

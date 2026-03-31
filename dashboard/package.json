@@ -1,10 +1,19 @@
 {
   "name": "dashboard",
-  "version": "1.0.2",
+  "version": "1.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "local": "npm run dev:local",
+    "demo": "npm run dev:demo",
+    "prod": "npm run dev:prod",
+    "dev:local": "set NEXT_PUBLIC_SIGHT_SERVER_URL=ws://localhost:8080/ws&& set NEXT_PUBLIC_SIGHT_API_URL=http://localhost:8080&& next dev",
+    "dev:demo": "set NEXT_PUBLIC_SIGHT_SERVER_URL=wss://sight.sanchez.ph/ws&& set NEXT_PUBLIC_SIGHT_API_URL=https://sight.sanchez.ph&& next dev",
+    "dev:prod": "set NEXT_PUBLIC_SIGHT_SERVER_URL=wss://sight.avegabros.org/ws&& set NEXT_PUBLIC_SIGHT_API_URL=https://sight.avegabros.org&& next dev",
     "build": "next build",
+    "build:local": "set NEXT_PUBLIC_SIGHT_SERVER_URL=ws://localhost:8080/ws&& set NEXT_PUBLIC_SIGHT_API_URL=http://localhost:8080&& next build",
+    "build:demo": "set NEXT_PUBLIC_SIGHT_SERVER_URL=wss://sight.sanchez.ph/ws&& set NEXT_PUBLIC_SIGHT_API_URL=https://sight.sanchez.ph&& next build",
+    "build:prod": "set NEXT_PUBLIC_SIGHT_SERVER_URL=wss://sight.avegabros.org/ws&& set NEXT_PUBLIC_SIGHT_API_URL=https://sight.avegabros.org&& next build",
     "start": "next start",
     "lint": "eslint"
   },

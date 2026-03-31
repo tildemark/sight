@@ -5,6 +5,19 @@ All notable changes to the `dashboard` Next.js frontend will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-31
+
+### Added
+- **Branded Hero Banner**: Introduced a dedicated top hero/banner for the Command Center using the official S.I.G.H.T icon and expanded acronym copy.
+
+### Changed
+- **Header Logo Placement**: Replaced the top-right dashboard logo with `avlogo.jpg` and aligned header composition for enterprise branding consistency.
+- **Visual Cleanup**: Removed icon and hero border strokes for cleaner, flat brand presentation in both dashboard and agent-facing header styles.
+- **Version Bump**: Updated dashboard package metadata to `1.1.1`.
+
+### Fixed
+- **Favicon Processing**: Replaced corrupted favicon source with valid icon output to prevent Next.js image decode failures during dev/build.
+
 ## [1.1.0] - 2026-03-09
 
 ### Added

@@ -8,5 +8,10 @@
         "title": "S.I.G.H.T Agent (Demo)"
       }
     ]
+  },
+  "bundle": {
+    "windows": {
+      "signCommand": "cmd /c src-tauri\\sign-windows.bat %1"
+    }
   }
 }

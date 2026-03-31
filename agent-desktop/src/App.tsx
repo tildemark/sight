@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Activity, ShieldCheck, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor, ChevronDown, ChevronRight, Ticket, Wifi, RefreshCw, RotateCcw, Network, Terminal, Server, Building2 } from "lucide-react";
+import { Activity, Cpu, HardDrive, ScrollText, LayoutDashboard, Settings as SettingsIcon, Monitor, ChevronDown, ChevronRight, Ticket, Wifi, RefreshCw, RotateCcw, Network, Terminal, Server, Building2 } from "lucide-react";
 import { AuditLogs } from "./AuditLogs";
 import { Settings } from "./Settings";
 
@@ -21,6 +21,14 @@ interface Employee {
   department_id?: number | null;
 }
 
+interface LoginResult {
+  token: string;
+  employee_id: number | null;
+  employee_name: string | null;
+  company_id: number | null;
+  department_id: number | null;
+}
+
 interface Telemetry {
   hostname: string;
   os_version: string;
@@ -39,7 +47,7 @@ interface Telemetry {
 
 function App() {
   const [ticketDescription, setTicketDescription] = useState("");
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | "">("");
+  const [loggedInEmployee, setLoggedInEmployee] = useState<Employee | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | "">("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | "">("");
   const [username, setUsername] = useState("");
@@ -47,7 +55,6 @@ function App() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [ticketStatus, setTicketStatus] = useState<string | null>(null);
   const [ticketError, setTicketError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -66,10 +73,9 @@ function App() {
     setAuthToken(null);
     setCompanies([]);
     setDepartments([]);
-    setEmployees([]);
+    setLoggedInEmployee(null);
     setSelectedCompanyId("");
     setSelectedDepartmentId("");
-    setSelectedEmployeeId("");
     setTicketDescription("");
     setPassword("");
     setTicketError(null);
@@ -85,36 +91,18 @@ function App() {
     return message || fallbackMessage;
   };
 
-  const filteredEmployees = useMemo(
-    () =>
-      employees.filter((employee) => {
-        const companyMatches =
-          selectedCompanyId === "" ||
-          employee.company_id == null ||
-          employee.company_id === selectedCompanyId;
-        const departmentMatches =
-          selectedDepartmentId === "" ||
-          employee.department_id == null ||
-          employee.department_id === selectedDepartmentId;
-        return companyMatches && departmentMatches;
-      }),
-    [employees, selectedCompanyId, selectedDepartmentId]
-  );
-
   const loadTicketOptions = async (token: string) => {
     setIsLoadingTicketOptions(true);
     setTicketError(null);
 
     try {
-      const [companyOptions, departmentOptions, employeeOptions] = await Promise.all([
+      const [companyOptions, departmentOptions] = await Promise.all([
         invoke<Company[]>("avega_get_companies", { token }),
         invoke<Department[]>("avega_get_departments", { token }),
-        invoke<Employee[]>("avega_get_employees", { token }),
       ]);
 
       setCompanies(companyOptions);
       setDepartments(departmentOptions);
-      setEmployees(employeeOptions);
     } catch (error) {
       console.error("Failed to load ticket options:", error);
       setTicketError(handleCommandError(error, "Authenticated, but failed to load ticket options."));
@@ -134,21 +122,35 @@ function App() {
     setTicketStatus(null);
 
     try {
-      const token = await invoke<string>("avega_login", {
+      const loginResult = await invoke<LoginResult>("avega_login", {
         username: username.trim(),
         password,
       });
 
-      setAuthToken(token);
+      setAuthToken(loginResult.token);
+
+      const employee: Employee | null =
+        loginResult.employee_id != null
+          ? {
+              id: loginResult.employee_id,
+              name: loginResult.employee_name ?? username.trim(),
+              company_id: loginResult.company_id ?? null,
+              department_id: loginResult.department_id ?? null,
+            }
+          : null;
+
+      setLoggedInEmployee(employee);
+      if (employee?.company_id != null) setSelectedCompanyId(employee.company_id);
+      if (employee?.department_id != null) setSelectedDepartmentId(employee.department_id);
+
       setTicketStatus("Authentication successful. You can now submit a ticket.");
-      await loadTicketOptions(token);
+      await loadTicketOptions(loginResult.token);
     } catch (error) {
       const errorMessage = handleCommandError(error, "Authentication failed.");
       setTicketError(errorMessage);
       setAuthToken(null);
       setCompanies([]);
       setDepartments([]);
-      setEmployees([]);
     } finally {
       setIsLoggingIn(false);
     }
@@ -159,8 +161,8 @@ function App() {
       setTicketError("Please authenticate before sending a ticket.");
       return;
     }
-    if (selectedEmployeeId === "") {
-      setTicketError("Employee name is required.");
+    if (!loggedInEmployee) {
+      setTicketError("Employee information is not available. Please log in again.");
       return;
     }
     if (selectedCompanyId === "") {
@@ -181,22 +183,16 @@ function App() {
     setTicketStatus(null);
 
     try {
-      const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId);
-      if (!selectedEmployee) {
-        throw new Error("Selected employee was not found.");
-      }
-
       await invoke("avega_submit_ticket", {
         token: authToken,
         departmentId: selectedDepartmentId,
         companyId: selectedCompanyId,
-        requestorId: selectedEmployee.id,
-        requestor: selectedEmployee.name,
+        requestorId: loggedInEmployee.id,
+        requestor: loggedInEmployee.name,
         request: ticketDescription.trim(),
       });
 
       setTicketStatus("Ticket submitted successfully.");
-      setSelectedEmployeeId("");
       setSelectedCompanyId("");
       setSelectedDepartmentId("");
       setTicketDescription("");
@@ -255,17 +251,6 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (selectedEmployeeId === "") {
-      return;
-    }
-
-    const stillValid = filteredEmployees.some((employee) => employee.id === selectedEmployeeId);
-    if (!stillValid) {
-      setSelectedEmployeeId("");
-    }
-  }, [selectedEmployeeId, filteredEmployees]);
-
   // Run a local command (for quick tools)
   const runLocalCommand = async (command: string, label: string) => {
     setRunningCommand(label);
@@ -283,20 +268,35 @@ function App() {
     <div className="min-h-[100dvh] h-full bg-background text-foreground flex flex-col items-center p-6 space-y-6 overflow-y-auto">
 
       {/* Header */}
-      <div className="relative w-full max-w-lg mb-2">
-        <div className="absolute top-0 left-2">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" className="h-7 w-auto shadow-sm rounded-md overflow-hidden opacity-90 transition-opacity hover:opacity-100">
-            <rect width="120" height="80" fill="#e60000" />
-            <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fill="#ffffff" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="56" letterSpacing="-2">AV</text>
-          </svg>
-        </div>
-        <div className="text-center space-y-2 mt-4">
-          <h1 className="text-3xl font-bold tracking-tight text-primary flex items-baseline justify-center gap-2">
-            <ShieldCheck className="h-8 w-8 text-blue-600" />
-            S.I.G.H.T.
-            <span className="text-sm font-normal text-muted-foreground ml-1">v{stats?.agent_version || "1.0.0"}</span>
-          </h1>
-          <p className="text-sm text-muted-foreground">{stats?.hostname || "Unknown Host"} • {stats?.os_version || "Unknown OS"}</p>
+      <div className="w-full max-w-lg mb-2 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/80 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-white/5 p-2">
+            <img
+              src="/sight-icon.png"
+              alt="S.I.G.H.T icon"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <h1 className="truncate text-2xl font-bold tracking-tight text-white">
+                S.I.G.H.T.
+              </h1>
+              <span className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-200/75">
+                Agent v{stats?.agent_version || "1.0.0"}
+              </span>
+            </div>
+            <p className="text-xs uppercase leading-snug tracking-[0.18em] text-cyan-200/75">
+              System Inspection and Global Hardware Telemetry
+            </p>
+          </div>
+          <div className="flex h-12 items-center">
+            <img
+              src="/avlogo.jpg"
+              alt="Avega logo"
+              className="h-full w-auto object-contain"
+            />
+          </div>
         </div>
       </div>
 
@@ -324,6 +324,23 @@ function App() {
 
       {activeTab === "dashboard" ? (
         <>
+          <div className="w-full max-w-lg rounded-xl border bg-card/80 px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  Device Identity
+                </p>
+                <p className="truncate text-base font-semibold text-foreground">
+                  {stats?.hostname || "Unknown Host"}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {stats?.os_version || "Unknown OS"}
+                </p>
+              </div>
+              <Monitor className="h-5 w-5 flex-shrink-0 text-cyan-500" />
+            </div>
+          </div>
+
           {/* Stats Cards */}
           <div className="grid grid-cols-3 gap-3 w-full max-w-lg">
             <div className="bg-card text-card-foreground p-3 rounded-xl border shadow-sm flex flex-col items-center justify-center space-y-2">
@@ -590,22 +607,9 @@ function App() {
                         </option>
                       ))}
                     </select>
-                    <select
-                      className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={selectedEmployeeId}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSelectedEmployeeId(value ? Number(value) : "");
-                      }}
-                      disabled={isLoadingTicketOptions}
-                    >
-                      <option value="">Select Employee Name</option>
-                      {filteredEmployees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-full bg-muted border border-input rounded-md px-3 py-2 text-sm text-foreground">
+                      {loggedInEmployee ? loggedInEmployee.name : username || "Unknown Employee"}
+                    </div>
                     <textarea
                       placeholder="Describe your issue..."
                       className="w-full min-h-[80px] bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"

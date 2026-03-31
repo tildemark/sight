@@ -5,6 +5,27 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use std::collections::HashMap;
 
+fn should_force_profile_defaults() -> bool {
+    match std::env::var("SIGHT_FORCE_PROFILE_DEFAULTS") {
+        Ok(value) => {
+            let normalized = value.trim().to_ascii_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+        }
+        Err(_) => false,
+    }
+}
+
+fn normalize_local_ws_url(url: &str) -> Option<String> {
+    let trimmed = url.trim();
+    if trimmed.starts_with("wss://localhost")
+        || trimmed.starts_with("wss://127.0.0.1")
+        || trimmed.starts_with("wss://[::1]")
+    {
+        return Some(trimmed.replacen("wss://", "ws://", 1));
+    }
+    None
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LocalLog {
     pub id: i64,
@@ -72,18 +93,47 @@ pub fn init_db(app_handle: &tauri::AppHandle) -> Result<()> {
     let default_fallback_url = option_env!("SIGHT_FALLBACK_URL").unwrap_or("https://sight.sanchez.ph/config.json");
     let default_abas_url = option_env!("SIGHT_ABAS_URL").unwrap_or("https://abas.avegabros.org/");
     
-    conn.execute(
-        "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
-        rusqlite::params!["server_url", default_server_url],
-    )?;
-    conn.execute(
-        "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
-        rusqlite::params!["fallback_config_url", default_fallback_url],
-    )?;
+    if should_force_profile_defaults() {
+        conn.execute(
+            "INSERT INTO config (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            rusqlite::params!["server_url", default_server_url],
+        )?;
+        conn.execute(
+            "INSERT INTO config (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            rusqlite::params!["fallback_config_url", default_fallback_url],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["server_url", default_server_url],
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["fallback_config_url", default_fallback_url],
+        )?;
+    }
     conn.execute(
         "INSERT OR IGNORE INTO config (key, value) VALUES (?1, ?2)",
         rusqlite::params!["abas_url", default_abas_url],
     )?;
+
+    // Safety migration: local Go dev server is non-TLS, so localhost must use ws://.
+    let saved_server_url: Option<String> = conn
+        .query_row(
+            "SELECT value FROM config WHERE key = 'server_url'",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
+
+    if let Some(url) = saved_server_url {
+        if let Some(normalized_url) = normalize_local_ws_url(&url) {
+            conn.execute(
+                "UPDATE config SET value = ?1 WHERE key = 'server_url'",
+                rusqlite::params![normalized_url],
+            )?;
+        }
+    }
 
     Ok(())
 }

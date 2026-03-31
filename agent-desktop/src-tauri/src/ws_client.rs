@@ -1,7 +1,7 @@
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
-use tokio::time::{sleep, Duration};
+use tokio::time::{sleep, Duration, Instant};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
 use crate::telemetry::get_telemetry;
@@ -42,6 +42,189 @@ fn append_ws_log(app_handle: &AppHandle, message: &str) {
             let _ = writeln!(f, "{}", message);
         }
     }
+}
+
+#[cfg(target_os = "windows")]
+fn run_speedtest_cli() -> Option<(bool, String)> {
+    use std::os::windows::process::CommandExt;
+
+    let candidates: [(&str, Vec<&str>); 4] = [
+        ("speedtest", vec!["--accept-license", "--accept-gdpr", "--format=json-pretty"]),
+        ("speedtest-go", vec!["--json"]),
+        ("fast", vec!["--upload", "--json"]),
+        ("fast-cli", vec!["--upload", "--json"]),
+    ];
+
+    for (bin, args) in candidates {
+        let mut cmd = std::process::Command::new(bin);
+        cmd.creation_flags(0x08000000);
+        cmd.args(args);
+        match cmd.output() {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let combined = format!("{}{}", stdout, stderr).trim().to_string();
+                if !combined.is_empty() {
+                    let mut out = String::new();
+                    out.push_str("Internet Speed Test\n");
+                    out.push_str("-------------------\n");
+                    out.push_str(&format!("Provider : {}\n\n", bin));
+                    out.push_str(&combined);
+                    out.push('\n');
+                    return Some((output.status.success(), out));
+                }
+            }
+            Err(_) => {
+                // Try next provider
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn run_speedtest_cli() -> Option<(bool, String)> {
+    let candidates: [(&str, Vec<&str>); 4] = [
+        ("speedtest", vec!["--accept-license", "--accept-gdpr", "--format=json-pretty"]),
+        ("speedtest-go", vec!["--json"]),
+        ("fast", vec!["--upload", "--json"]),
+        ("fast-cli", vec!["--upload", "--json"]),
+    ];
+
+    for (bin, args) in candidates {
+        let mut cmd = std::process::Command::new(bin);
+        cmd.args(args);
+        match cmd.output() {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let combined = format!("{}{}", stdout, stderr).trim().to_string();
+                if !combined.is_empty() {
+                    let mut out = String::new();
+                    out.push_str("Internet Speed Test\n");
+                    out.push_str("-------------------\n");
+                    out.push_str(&format!("Provider : {}\n\n", bin));
+                    out.push_str(&combined);
+                    out.push('\n');
+                    return Some((output.status.success(), out));
+                }
+            }
+            Err(_) => {
+                // Try next provider
+            }
+        }
+    }
+    None
+}
+
+async fn run_builtin_speedtest() -> (bool, String) {
+    let mut report = String::new();
+    report.push_str("Internet Speed Test\n");
+    report.push_str("-------------------\n");
+    report.push_str("Provider : Agent Built-in Fallback\n\n");
+
+    let client = match reqwest::Client::builder().timeout(Duration::from_secs(60)).build() {
+        Ok(c) => c,
+        Err(e) => {
+            return (false, format!("{}Failed to initialize HTTP client: {}", report, e));
+        }
+    };
+
+    let download_urls = [
+        "https://proof.ovh.net/files/10Mb.dat",
+        "https://speed.hetzner.de/10MB.bin",
+    ];
+
+    let mut download_mbps: Option<f64> = None;
+    let mut download_bytes: usize = 0;
+    let mut download_secs = 0.0;
+
+    for url in download_urls {
+        let start = Instant::now();
+        match client.get(url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                match resp.bytes().await {
+                    Ok(body) => {
+                        download_bytes = body.len();
+                        download_secs = start.elapsed().as_secs_f64().max(0.001);
+                        let bits = (download_bytes as f64) * 8.0;
+                        download_mbps = Some((bits / 1_000_000.0) / download_secs);
+                        break;
+                    }
+                    Err(_) => {
+                        // Try next URL
+                    }
+                }
+            }
+            _ => {
+                // Try next URL
+            }
+        }
+    }
+
+    if let Some(mbps) = download_mbps {
+        report.push_str(&format!(
+            "Download : {:.2} Mbps ({:.2} MB in {:.2}s)\n",
+            mbps,
+            (download_bytes as f64) / (1024.0 * 1024.0),
+            download_secs
+        ));
+    } else {
+        report.push_str("Download : unavailable\n");
+    }
+
+    let mut upload_mbps: Option<f64> = None;
+    let upload_payload = vec![0_u8; 2_000_000];
+    let upload_endpoints = [
+        "https://postman-echo.com/post",
+        "https://httpbin.org/post",
+    ];
+
+    for endpoint in upload_endpoints {
+        let start = Instant::now();
+        match client
+            .post(endpoint)
+            .header("Content-Type", "application/octet-stream")
+            .body(upload_payload.clone())
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                let secs = start.elapsed().as_secs_f64().max(0.001);
+                let bits = (upload_payload.len() as f64) * 8.0;
+                upload_mbps = Some((bits / 1_000_000.0) / secs);
+                report.push_str(&format!(
+                    "Upload   : {:.2} Mbps ({:.2} MB in {:.2}s)\n",
+                    upload_mbps.unwrap_or(0.0),
+                    (upload_payload.len() as f64) / (1024.0 * 1024.0),
+                    secs
+                ));
+                break;
+            }
+            _ => {
+                // Try next endpoint
+            }
+        }
+    }
+
+    if upload_mbps.is_none() {
+        report.push_str("Upload   : unavailable\n");
+    }
+
+    if let (Some(d), Some(u)) = (download_mbps, upload_mbps) {
+        report.push_str("\n");
+        report.push_str(&format!("Summary  : Down {:.2} Mbps | Up {:.2} Mbps\n", d, u));
+    }
+
+    let success = download_mbps.is_some() || upload_mbps.is_some();
+    (success, report)
+}
+
+async fn run_speedtest_action() -> (bool, String) {
+    if let Some((ok, output)) = run_speedtest_cli() {
+        return (ok, output);
+    }
+    run_builtin_speedtest().await
 }
 
 pub async fn start_background_loop(app_handle: AppHandle) {
@@ -142,9 +325,33 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             "net stop spooler && net start spooler" => "Restart the Print Spooler service".to_string(),
                                                             "RESTART_AGENT" => "Restart the background support agent".to_string(),
                                                             "UPDATE_AGENT" => "Auto-update is disabled for this build".to_string(),
+                                                            "SIGHT_SPEEDTEST" => "Run internet speed test (download/upload)".to_string(),
                                                             _ => action.clone(),
                                                         };
                                                         
+                                                        // Handle no-consent actions first
+                                                        if action == "SIGHT_SPEEDTEST" {
+                                                            let (ok, output) = run_speedtest_action().await;
+                                                            let log_id = local_db::insert_log_returning_id(&app_handle, action, if ok { "Success" } else { "Failed" }, &output).ok();
+                                                            let reply = WebSocketMessage {
+                                                                msg_type: "COMMAND_RESULT".to_string(),
+                                                                target_hostname: Some(sys_hostname.clone()),
+                                                                action: Some(action.to_string()),
+                                                                payload: Some(serde_json::to_value(CommandResultPayload {
+                                                                    success: ok,
+                                                                    output,
+                                                                }).unwrap()),
+                                                            };
+                                                            if let Ok(json) = serde_json::to_string(&reply) {
+                                                                if tx.send(Message::Text(json.into())).await.is_ok() {
+                                                                    if let Some(log_id) = log_id {
+                                                                        let _ = local_db::mark_logs_synced(&app_handle, vec![log_id]);
+                                                                    }
+                                                                }
+                                                            }
+                                                            continue;
+                                                        }
+
                                                         // Check for blanket consent (24-hour grant)
                                                         let consent_expires_at = {
                                                             let state = app_handle.state::<crate::AppState>();
@@ -276,19 +483,38 @@ pub async fn start_background_loop(app_handle: AppHandle) {
                                                             let mut cmd = if cfg!(target_os = "windows") {
                                                                 #[cfg(target_os = "windows")]
                                                                 use std::os::windows::process::CommandExt;
-                                                                let mut c = std::process::Command::new("cmd");
+
+                                                                let lowered = action.to_ascii_lowercase();
+                                                                let prefix = "powershell -command ";
+                                                                let mut c = if lowered.starts_with(prefix) {
+                                                                    // Execute PowerShell commands directly to avoid cmd.exe parsing issues
+                                                                    // with pipelines and braces in complex scripts.
+                                                                    let mut ps = std::process::Command::new("powershell");
+                                                                    let script = action[prefix.len()..].trim();
+                                                                    let script = script
+                                                                        .strip_prefix('"')
+                                                                        .and_then(|s| s.strip_suffix('"'))
+                                                                        .unwrap_or(script);
+                                                                    ps.arg("-NoProfile")
+                                                                        .arg("-ExecutionPolicy")
+                                                                        .arg("Bypass")
+                                                                        .arg("-Command")
+                                                                        .arg(script);
+                                                                    ps
+                                                                } else {
+                                                                    let mut shell = std::process::Command::new("cmd");
+                                                                    shell.arg("/C").arg(action);
+                                                                    shell
+                                                                };
+
                                                                 #[cfg(target_os = "windows")]
                                                                 c.creation_flags(0x08000000);
                                                                 c
                                                             } else {
-                                                                std::process::Command::new("sh")
+                                                                let mut c = std::process::Command::new("sh");
+                                                                c.arg("-c").arg(action);
+                                                                c
                                                             };
-                                                            
-                                                            if cfg!(target_os = "windows") {
-                                                                cmd.arg("/C").arg(action);
-                                                            } else {
-                                                                cmd.arg("-c").arg(action);
-                                                            }
 
                                                             let (result_payload, cmd_log_id) = match cmd.output() {
                                                                 Ok(output) => {

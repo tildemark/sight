@@ -214,7 +214,7 @@ scripts\build-prod-agent.bat
 
 6. **Upload Agent MSI**:
    - Build the demo agent
-   - Place in: `server/releases/agent-desktop_1.0.x_x64_en-US.msi`
+  - Place in: `server/releases/sight-agent_<version>_x64_en-US.msi`
    - Update landing page download link
 
 ### Production Server (sight.avegabros.org)

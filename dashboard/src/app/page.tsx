@@ -2,7 +2,8 @@
 
 import { AgentTable } from "@/components/AgentTable";
 import { LogsTable } from "@/components/LogsTable";
-import { ShieldAlert, Terminal, Server } from "lucide-react";
+import { Terminal, Server } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 
 type ViewMode = "agents" | "logs";
@@ -15,13 +16,28 @@ export default function Home() {
       <div className="max-w-6xl mx-auto space-y-8">
 
         {/* Header Section */}
-        <header className="flex items-center justify-between border-b pb-6">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-              <ShieldAlert className="h-8 w-8 text-blue-600" />
-              S.I.G.H.T. Command Center
-            </h1>
-            <p className="text-muted-foreground">Real-time enterprise telemetry and threat monitoring.</p>
+        <header className="flex items-stretch justify-between gap-6 border-b pb-6">
+          <div className="flex min-h-32 flex-1 items-center gap-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950/90 px-6 py-5 text-white shadow-sm">
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl bg-white/5 p-3 shadow-inner">
+              <Image
+                src="/sight-icon.png"
+                alt="S.I.G.H.T icon"
+                width={80}
+                height={80}
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-200/80">
+                System Inspection and Global Hardware Telemetry
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight lg:text-4xl">
+                S.I.G.H.T. Command Center
+              </h1>
+              <p className="max-w-2xl text-sm text-slate-300 lg:text-base">
+                System Inspection and Global Hardware Telemetry for fleet control, audit visibility, and remote response in a single operator view.
+              </p>
+            </div>
           </div>
           <div className="flex-shrink-0 flex items-center gap-6">
             <div className="flex bg-muted p-1 rounded-lg">
@@ -41,10 +57,13 @@ export default function Home() {
               </button>
             </div>
 
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" className="h-12 w-auto shadow-sm rounded-md overflow-hidden">
-              <rect width="120" height="80" fill="#e60000" />
-              <text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fill="#ffffff" fontFamily="Arial, sans-serif" fontWeight="900" fontSize="56" letterSpacing="-2">AV</text>
-            </svg>
+            <Image
+              src="/avlogo.jpg"
+              alt="Avega company logo"
+              width={160}
+              height={64}
+              className="h-14 w-auto rounded-lg object-contain"
+            />
           </div>
         </header>
 

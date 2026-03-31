@@ -1,9 +1,25 @@
 @echo off
 REM Build script for Demo Agent (sight.sanchez.ph)
 REM This builds the agent with demo server configuration
+REM
+REM CODE SIGNING (required to pass Windows Smart App Control on W11)
+REM Set these env vars before running to sign the output:
+REM   set SIGNING_CERT_PATH=C:\path\to\cert.pfx
+REM   set SIGNING_CERT_PASSWORD=your-pfx-password
 
 echo Building Sight Agent for Demo...
 echo Server: wss://sight.sanchez.ph/ws
+
+if not defined SIGNING_CERT_PATH (
+    echo.
+    echo  [WARNING] SIGNING_CERT_PATH is not set.
+    echo            The output will NOT be code signed.
+    echo            Windows Smart App Control will block unsigned builds on W11.
+    echo            Set SIGNING_CERT_PATH and SIGNING_CERT_PASSWORD to sign.
+    echo.
+) else (
+    echo [sign] Certificate: %SIGNING_CERT_PATH%
+)
 
 cd ..\agent-desktop
 

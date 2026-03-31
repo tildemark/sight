@@ -1,5 +1,27 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment Switching
+
+The dashboard now supports three layers of runtime endpoint selection:
+
+1. `NEXT_PUBLIC_SIGHT_SERVER_URL` + optional `NEXT_PUBLIC_SIGHT_API_URL` (highest priority)
+2. Automatic localhost defaults when running on `localhost` (`ws://localhost:8080/ws`, `http://localhost:8080`)
+3. `public/config.json` fallback (for deployed static/runtime config)
+
+Windows-friendly scripts are available in `package.json`:
+
+```bash
+npm run dev:local
+npm run dev:demo
+npm run dev:prod
+
+npm run build:local
+npm run build:demo
+npm run build:prod
+```
+
+If no env vars are set and you are not on localhost, the app reads `public/config.json`.
+
 ## Getting Started
 
 First, run the development server:

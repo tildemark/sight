@@ -7,11 +7,16 @@ pub mod avega_api;
 use std::sync::Mutex;
 use sysinfo::System;
 use tauri::{
+    image::Image,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
 use tauri_plugin_autostart::ManagerExt;
+
+fn load_runtime_icon() -> Option<Image<'static>> {
+    Image::from_bytes(include_bytes!("../icons/icon.png")).ok()
+}
 
 pub struct AppState {
     pub sys: Mutex<System>,
@@ -136,6 +141,12 @@ pub fn run() {
             // Enable autostart
             let _ = app.autolaunch().enable();
 
+            let runtime_icon = load_runtime_icon();
+
+            if let (Some(window), Some(icon)) = (app.get_webview_window("main"), runtime_icon.clone()) {
+                let _ = window.set_icon(icon);
+            }
+
             // Initialize Local SQLite Database
             if let Err(e) = local_db::init_db(&app.handle()) {
                 eprintln!("Failed to initialize local audit database: {}", e);
@@ -145,8 +156,14 @@ pub fn run() {
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+            let mut tray_builder = TrayIconBuilder::new();
+            if let Some(icon) = runtime_icon.clone() {
+                tray_builder = tray_builder.icon(icon);
+            } else if let Some(icon) = app.default_window_icon() {
+                tray_builder = tray_builder.icon(icon.clone());
+            }
+
+            tray_builder
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
